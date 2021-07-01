@@ -3,16 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
-  <title>MathJax example</title>
+  <title>Spernerjeva lema in retrakt</title>
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
   <script id="MathJax-script" async
           src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
   </script>
+  <style>
+      img {
+          display: block;
+      }
+  </style>
 </head>
 <body>
+    <h1>Spernerjeva lema</h1>
+    <h2>Uvod in definicije</h2>
 <p>
-  When \(a \ne 0\), there are two solutions to \(ax^2 + bx + c = 0\) and they are
-  \[x = {-b \pm \sqrt{b^2-4ac} \over 2a}.\]
+  Simpleks je n-dimenzionalni trikotnik. Standardni simpleks označimo z 
+  \[
+    \Delta^n = \left\{(x_1,\ldots,x_n) \in [0,1]^n \mid \sum_j x_j\leq 1\right\}
+  \]
+  Podobno lahko opišemo poljubni \(n\)-simpleks kot konveksna kombinacija \(n\) spremenljivk. Triangulacija simpleksa je razdelitev simpleksa na manjše simplekse. Pogoj je, da je vsak element triangulacije simpleks iste dimenzije ter, da je njihova unija celoten simpleks (torej triangulacija je pokritje s simpleksi).
+
+  <img src="primer_simplex.png"/>
+
+  Simpleks generiran z oglišči \(x_0,\ldots x_n\) označimo kot \([x_0,\ldots, x_n]\). Opazimo, da ima \(n\) simpleks \(n+1\) oglišč (primer: 1d premica ima 2 oglišča, podobno trikotnik)
+
+  Obratno, iz simpleksa \(\sigma\) dobimo njegova oglišča z \(\sigma^{(0)}\) (ker so to 0 dimenzionalna lica).
+  
+  Z \([n]\) bomo označili \(\{0,1,\ldots, n-1\}\).
+
+  Spernerjeva lema nam pove kaj se zgodi ob barvanju oglišč triangulacije simpleksa.
 </p>
+<h2>Trditev: Spernerjeva lema</h2>
+Dana je triangulacija \(\tau = \{\tau_a \mid a\in \Lambda\}\) \(n\)-simpleksa \(\sigma = [x_0, \ldots, x_n]).
+
+Naj bo \(\omega: \tau^{(0)}\to [n+1]) funkcija barvanja. Torej vsakemu oglišču priredi eno izmed n+1 barv, predstavljeno s števili (npr. za trikotnik \(\Delta^2\) je \(n=2\) in oglišča slika v 3 barve, npr RGB). Tej funkciji dodamo 2 zahtevi:
+<ol>
+    <li>Oglišča \(\sigma\) so različno pobarvana, zavzamejo vse barve točno enkrat. \(\omega: \sigma^{(0)} \subseteq \(\tau^{(0)}\to [n+1]\) je bijekcija</li>
+    <li>Če je \(y\in\tau^{(0)}\) vsebovana v [x_{j_1},\ldots,x_{j_k}] (\(k\)-dimenzionalno lice \(\sigma\), npr trikotnik ali stranica ali oglišče piramide v 3d), potem je \(\omega(y)\in \{\omega(x_{j_1})),\ldots,\omega(x_{j_k})\}. Torej če ima \(k\)-dimenzionalno lice \(\sigma\) oglišča pobaravana z nekimi barvami so tudi vsa oglišča triangulacije pobarvana z istimi barvami (in podobno rekurzivno lica lic).</li>
+</ol>
+
+Potem bo v triangulaciji liho mnogo simpleksov z vsemi barvami na ogliščih, tj. simplekov \(\tau_a\) za katere \(\omega(\tau_a^{(0)})=[n+1]\), slika oglišč so vse barve.
+
+Primer 1d
+<img src="1dsper.png" />
+
+Primer 2d
+<img src="2dsper.png" />
 </body>
 </html>
