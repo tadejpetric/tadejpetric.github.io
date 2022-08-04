@@ -10,6 +10,17 @@
                 src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
         </script>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+            window.MathJax = {
+                tex: {
+                    macros: {
+                    RR: '{\\bf R}',
+                    ZZ: '{\\bf Z}',
+                    char: '{\\rm{Char}}'
+                    }
+                }
+            };
+        </script>
     </head>
 
     <body>
@@ -18,16 +29,18 @@
             Chevalley–Warning theorem is a theorem in number theory concerning solutions of polynomials over finite fields. It can show the existence of a non-trivial solution to a system of polynomial equations, place a lower bound to the amount of solutions and, most curiously, assure that the number of solutions is divisible by the characteristic of the finite field. In this article, we briefly prove the three statements.
 
             Unless denoted otherwise, I basically copied Serre's A Course in Arithmetic, with added details.
+
+            You may click on the red fields to open up details.
         </abstract>
         <h3>Prerequisites</h3>
         The symbol \(p\) represents a prime number, \(q\) a power of a prime number and \(k,f\) and \(n\) natural numbers.
 
-        The characteristic \(\mathrm{Char}(K)\) denotes the smallest \(n\) for which \(n\cdot 1 = 0\) in \(k\).
+        The characteristic \(\char(K)\) denotes the smallest \(n\) for which \(n\cdot 1 = 0\) in \(k\).
 
-        The symbol \(F_p\) represents \(\mathbb{Z}/p\mathbb{Z}\).
+        The symbol \(F_p\) represents \(\ZZ/p\ZZ\).
         
         <h4>Fields of powers</h4>
-        If \(K\) is a finite field with \(\mathrm{Char}(K) = p\), then \(K^p = \{x^p \mid x\in K\}\) is its subfield induced by the isomorphism \(\sigma: x\mapsto x^p\).
+        If \(K\) is a finite field with \(\char(K) = p\), then \(K^p = \{x^p \mid x\in K\}\) is its subfield induced by the isomorphism \(\sigma: x\mapsto x^p\).
 
         <label>  Proof that \(\sigma\) is an isomorphism <input type="checkbox"/> 
             <span>This is indeed a homomorphism because \((xy)^p = x^py^p\) and, since \(p\) is a prime number, \(\binom{p}{k}\equiv 0 \pmod p\). That's easily seen by its formula
@@ -39,7 +52,7 @@
     
         <h4>Number of elements in a field</h4>
         
-        <label>  If \(\mathrm{Char}(K)=p\) and \(f = [K:F_p]\) then the number of elements of \(K\) is \(q=p^f\). <input type="checkbox"/> 
+        <label>  If \(\char(K)=p\) and \(f = [K:F_p]\) then the number of elements of \(K\) is \(q=p^f\). <input type="checkbox"/> 
             <span>
                 We see that \(F_p\) is a subfield of \(K\), as the image of \(Z\). The degree of the extension is denoted as \(f = [K:F_p]\). View \(K\) as a \(F_p\)-vector space, which has a dimension of size \(f\). Let \(v_1,\ldots,v_f\) be its basis vectors and \(a_j\) scalars from \(F_p\). 
                 \[
@@ -48,8 +61,16 @@
                 creates distinct elements of \(K\) for every choice of scalars by linear independence and generates every element of \(K\). There are \(f\) possible choices for each of the \(p\) instances of \(a_j\), meaning there are \(p^f\) possible choices for \((a_1,\ldots,a_f)\). So the cardinality of \(K\) is \(p^f\).
             </span> 
         </label>
+        A similar converse statement also holds
+                
+        <label>  If a finite field has \(q=p^f\) elements, then it is isomorphic to \(F_q\). <input type="checkbox"/> 
+            <span>
+                First we prove a lemma. If \(p\) is a prime, \(q=p^f\) and \(\Omega\) an algebraically closed field of characteristic \(p\). Then there exists a unique subfield \(F_q\subseteq \Omega\) with \(q\) elements. The field is the field of roots of polynomial \(X^q-X\).<br>
+                We know that \(x\mapto x^p\) is an automorphism. We can similarly construct an automorphism \(x\mapto x^q\). It still holds that
+                \[\binom{p^f}{k}\equiv 0 \pmod p\] because
+            </span> 
+        </label>
     
-        All finite fields with \(q=p^f\) elements are isomorphic to \(F_q\)
         <h3>Chevalley–Warning theorem</h3>
         <h4>Statement</h4>
         Let \(K\) be a finite field of size \(q=p^f\). Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(\sum_{j=1}^k\deg f_j < n\). Then
