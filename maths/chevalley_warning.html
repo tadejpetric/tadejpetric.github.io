@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <link rel="stylesheet" type="text/css" href="math_style.css">
+        <title>Chevalley–Warning theorem</title>
+
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+        <script id="MathJax-script" async
+                src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+        </script>
+    </head>
+
+    <body>
+        <h1>Chevalley–Warning theorem</h1>
+        <abstract>
+            Chevalley–Warning theorem is a theorem in number theory concerning solutions of polynomials over finite fields. It can show the existence of a non-trivial solution to a system of polynomial equations, place a lower bound to the amount of solutions and, most curiously, assure that the number of solutions is divisible by the characteristic of the finite field. In this article, we briefly prove the three statements.
+
+            Unless denoted otherwise, I basically copied Serre's A Course in Arithmetic, with added details.
+        </abstract>
+        <h3>Prerequisites</h3>
+        The symbol \(p\) represents a prime number, \(q\) a power of a prime number and \(k,f\) and \(n\) natural numbers.
+
+        The characteristic \(\mathrm{Char}(K)\) denotes the smallest \(n\) for which \(n\cdot 1 = 0\) in \(k\).
+
+        The symbol \(F_p\) represents \(\mathbb{Z}/p\mathbb{Z}\).
+        
+        <h4>Fields of powers</h4>
+        If \(K\) is a finite field with \(\mathrm{Char}(K) = p\), then \(K^p = \{x^p \mid x\in K\}\) is its subfield induced by the isomorphism \(\sigma: x\mapsto x^p\).
+
+        <label>  Proof that \(\sigma\) is an isomorphism <input type="checkbox"/> 
+            <span>This is indeed a homomorphism because \((xy)^p = x^py^p\) and, since \(p\) is a prime number, \(\binom{p}{k}\equiv 0 \pmod p\). That's easily seen by its formula
+            \[
+                \binom{p}{k} = \frac{p!}{k!(p-k)!}.
+            \]
+            Because the factors in the denominator are strictly smaller than \(p\), they can not divide out the \(p\) from the numerator. This way, \((x+y)^p = x^p + y^p\) by binomial theorem. It is also injective, because \(x^p=0\) means \(x=0\) as fields have no zero divisors, therefore the kernel is trivial.</span> 
+        </label>
+    
+        <h4>Number of elements in a field</h4>
+        
+        <label>  If \(\mathrm{Char}(K)=p\) and \(f = [K:F_p]\) then the number of elements of \(K\) is \(q=p^f\). <input type="checkbox"/> 
+            <span>
+                We see that \(F_p\) is a subfield of \(K\), as the image of \(Z\). The degree of the extension is denoted as \(f = [K:F_p]\). View \(K\) as a \(F_p\)-vector space, which has a dimension of size \(f\). Let \(v_1,\ldots,v_f\) be its basis vectors and \(a_j\) scalars from \(F_p\). 
+                \[
+                    \sum_{j=1}^f a_j v_j
+                \]
+                creates distinct elements of \(K\) for every choice of scalars by linear independence and generates every element of \(K\). There are \(f\) possible choices for each of the \(p\) instances of \(a_j\), meaning there are \(p^f\) possible choices for \((a_1,\ldots,a_f)\). So the cardinality of \(K\) is \(p^f\).
+            </span> 
+        </label>
+    
+        All finite fields with \(q=p^f\) elements are isomorphic to \(F_q\)
+        <h3>Chevalley–Warning theorem</h3>
+        <h4>Statement</h4>
+        Let \(K\) be a finite field of size \(q=p^f\). Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(\sum_{j=1}^k\deg f_j < n\). Then
+        \[
+            \lvert V_{K^n}(f_1,\ldots,f_k) \rvert \equiv 0 \pmod p
+        \]
+        <h3>Warning's second theorem</h3>
+        <h4>Statement</h4>
+        Let \(K\) be a finite field of size \(q=p^f\). Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(d = \sum_{j=1}^k\deg f_j < n\). Then either \(V_{K^n}(f_1,\ldots,f_k) = \emptyset\) or
+        \[
+            \lvert V_{K^n}(f_1,\ldots,f_k) \rvert \geq q^{n-d}
+        \]
+        <h3>Chevalley theorem</h3>
+        <h4>Statement</h4>
+        Let \(K\) be a finite field of size \(q=p^f\). Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(\sum_{j=1}^k\deg f_j < n\) and \(f_j(0)=0\) (they have no constant term). Then there is also a non-trivial common solution.
+        <h3>References</h3>
+    </body>
+</html>

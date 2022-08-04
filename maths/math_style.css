@@ -1,0 +1,17 @@
+input {
+    display: none;
+}
+
+label {
+    background-color: rgb(255, 206, 206);
+    display: block;
+}
+
+span {
+    display: none;
+}
+
+input:checked + span {
+    display: inline-block;
+    background-color: rgb(223, 223, 253);
+}
