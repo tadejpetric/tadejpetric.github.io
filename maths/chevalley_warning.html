@@ -28,11 +28,11 @@
         <h1>Chevalley–Warning theorem</h1>
 
         <h3>Notation</h3>
-        The symbol \(k\) and \(n\) represent natural numbers, \(p\) represents a prime number and \(q\) a power of a prime number \(p\).
+        The symbols \(k\) and \(n\) represent natural numbers, \(p\) represents a prime number and \(q\) a power of a prime number \(p\).
         <span class="br"></span>
-        With \(K\) we denote a finite field of size \(q\). The characteristic \(\char(K)\) denotes the smallest \(n\) for which \(n\cdot 1 = 0\) in \(k\). Most common finite fields (in some way all) are \(Z_q\) of integers modulo \(q\).
+        With \(K\) we denote a finite field of size \(q\) and characteristic \(p\). The characteristic \(\char(K)\) denotes the smallest \(n\) for which \(n\cdot 1 = 0\) in \(K\). Most common finite fields (in some way all) are \(Z_q\) of integers modulo \(q\).
         <span class="br"></span>
-        The vanishing set of \(f_1,\ldots, f_k\) is defined as
+        The vanishing set, the set of common zeroes of \(f_1,\ldots, f_k\) is defined as
         \[
             V_{K^n}(f_1,\ldots,f_k) = \{x\in K^n\mid \forall j\sep f_j(x)=0\} \subseteq K^n
         \]
@@ -40,6 +40,7 @@
         We also use \(X\vdash Y\) to mean "given X, then Y" to specify context.
 
         <h3>Chevalley–Warning theorem</h3>
+        I will be heavily relying on Serre's A course in arithmetic.
         <h4>Statement</h4>
          Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(\sum_{j=1}^k\deg f_j < n\). Then
         \[
@@ -53,7 +54,7 @@
         \[
         \lvert V_{K^n}(f) \rvert \equiv 0 \pmod p.
         \]
-        However we already know of one solution to the equation, the element 0. This implies that there's at least one other solution since \(1\not\equiv 0\) for any \(p\). The equation \(x+y=0\) in \(Z_2\), for instance has the solutions \(x=y=0\) and \(x=y=1\). We could also generalise the example: quadratic forms of at least 3 variables have a nontrivial zero and \(n+1\)-forms of at least \(n\) variables have a nontrivial zero.
+        However we already know of one solution to the equation, the element 0. This implies that there's at least one other solution since \(1\not\equiv 0\) for any \(p\). The equation \(x+y=0\) in \(Z_2\), for instance has the solutions \(x=y=0\) and \(x=y=1\). We could also generalise the example: quadratic forms of at least 3 variables have a nontrivial zero and \(n\)-forms of at least \(n+1\) variables have a nontrivial zero.
         <h4>Exercise</h4> Prove that any element of a finite field is a sum of two squares.
         <h4>Proof</h4> To prove the theorem we're going to need two lemmas. First lemma is needed to prove the second one. Second one talks about the result of adding up all values in the field and will be used in the main proof. The idea of the main proof is to use indicator functions as a counter of zeroes. The function will be 1 on points that vanish and 0 otherwise. Then we just add up all values using the second lemma, in the domain of the indicator function, which will be the cardinality of the vanishing set.
         <p>
@@ -114,11 +115,13 @@
         </p>
         <!--                    -----------                        -->
         <h3>Warning's second theorem</h3>
+        For the proof see <a href="https://webpages.scu.edu/ftp/sasgarli/WST.pdf">https://webpages.scu.edu/ftp/sasgarli/WST.pdf</a>
         <h4>Statement</h4>
         Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(d = \sum_{j=1}^k\deg f_j < n\). Then either \(V_{K^n}(f_1,\ldots,f_k) = \emptyset\) or
         \[
             \lvert V_{K^n}(f_1,\ldots,f_k) \rvert \geq q^{n-d}
         \]
+        <h4>Example</h4> Let's examine the example from before again. Consider a linear form in \(n\) variables over a finite field of size \(q\). Then \(\lvert V_{K^n}(f) \rvert \geq q^{n-1}\). We already know that \(f(0)=0\) and, by the Chevalley–Warning theorem, we know the form also has at least \(p-1\) other zeroes. If \(q=p\) (and not a power of \(p\)) and the number of variables \(n=2\), we learn nothing new. However for any other values \(n>2\) or \(q=p^k\), Warning's second theorem <i>greatly</i> increases the amount of solutions to the linear form. Same example, of course, extends to polynomials of higher degree.
         <h3>Chevalley theorem</h3>
         <h4>Statement</h4>
         Consider a family of \(k\) polynomials in \(n\) variables, \(f_j\in K[X_1,\ldots, X_n]\), such that \(\sum_{j=1}^k\deg f_j < n\) and \(f_j(0)=0\) (they have no constant term). Then there is also a non-trivial common solution.
