@@ -239,7 +239,7 @@ endcmp:
             going to need to compare whether we're finished yet. So there's no hope for improvement... But first, let's
             rewrite the entire program in assembly by ourselves. If we do that, the code becomes readable and short.
             We'll
-            show that this doesn't meaningfully change the performance.
+            show that this doesn't meaningfully affect the performance.
             <h3>Rewriting code ourselves</h3>
             <p>I have written the program in x86 assembly from scratch, so that the results are easily reproducible
                 elsewhere. I'll first paste the entire program</p>
@@ -362,9 +362,36 @@ main: ; start of the program
             <pre><code class="language-x86asm">add eax, [array + 4*rcx] ; eax += array[rcx]
 add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
 </code></pre>
-            <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the next instruction even if the one beforehand isn't finished. If the computation of the next instruction requires the result of the previous one (such as when we were adding to the same register twice), the second instruction will wait until it receives the result. However if the two instructions are completely independent, both of them can proceed at the same time. And since we weren't writing to the memory that the second register reads from, nor was that register already occupied before, there is nothing stopping us from executing both instructions at the same time - assuming of course, the hardware supports that. The x86 architecture processors support that since around 1995, with the first such processor being the original <a href="https://en.wikipedia.org/wiki/Pentium_(original)">Pentium</a>. So this is how we can write parallel code in a sequential program. A bit of an oxymoron, but it's justified.</p>
-            <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily mentioned one before in this blog post, branch prediction (and the related speculative execution). During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else" path of an if statement, for example). Then it goes and starts executing one. However the computer can't just work on a guess, it still has to go and check whether it selected the correct branch; it's just that it can go and check that while it's executing one of the paths (some architectures, especially GPU-based ones like executing both paths without guessing). Then once it's determined whether the branch selection is correct, if it's correct it continues executing and if not, scraps it and starts the other option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done to some registers so it can be slower than just waiting for the result of the branch before proceeding, but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the result is known, while even in the best case without branch prediction, it has to start at the beginning once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
-            <p>There is also something related these processors can do with independent operations, they can arbitrarily swap their order of execution. So we can't even be sure whether our <code class="language-x86asm">eax</code> got added first or if, somehow, the data was available sooner for <code class="language-x86asm">ebx</code> and that one began the execution first. That's known as out of order execution. So even though our assembly looks close to hardware and sequential, often, as we have seen, what happens in the machine isn't exactly what our sequential code appears to dictate.</p>
+            <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the
+                next instruction even if the one beforehand isn't finished. If the computation of the next instruction
+                requires the result of the previous one (such as when we were adding to the same register twice), the
+                second instruction will wait until it receives the result. However if the two instructions are
+                completely independent, both of them can proceed at the same time. And since we weren't writing to the
+                memory that the second register reads from, nor was that register already occupied before, there is
+                nothing stopping us from executing both instructions at the same time - assuming of course, the hardware
+                supports that. The x86 architecture processors support that since around 1995, with the first such
+                processor being the original <a href="https://en.wikipedia.org/wiki/Pentium_(original)">Pentium</a>. So
+                this is how we can write parallel code in a sequential program. A bit of an oxymoron, but it's
+                justified.</p>
+            <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily
+                mentioned one before in this blog post, branch prediction (and the related speculative execution).
+                During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else"
+                path of an if statement, for example). Then it goes and starts executing one. However the computer can't
+                just work on a guess, it still has to go and check whether it selected the correct branch; it's just
+                that it can go and check that while it's executing one of the paths (some architectures, especially
+                GPU-based ones like executing both paths without guessing). Then once it's determined whether the branch
+                selection is correct, if it's correct it continues executing and if not, scraps it and starts the other
+                option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done
+                to some registers so it can be slower than just waiting for the result of the branch before proceeding,
+                but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the
+                result is known, while even in the best case without branch prediction, it has to start at the beginning
+                once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
+            <p>There is also something related these processors can do with independent operations, they can arbitrarily
+                swap their order of execution. So we can't even be sure whether our <code
+                    class="language-x86asm">eax</code> got added first or if, somehow, the data was available sooner for
+                <code class="language-x86asm">ebx</code> and that one began the execution first. That's known as out of
+                order execution. So even though our assembly looks close to hardware and sequential, often, as we have
+                seen, what happens in the machine isn't exactly what our sequential code appears to dictate.</p>
 
             <p>Wait for part 2!</p>
         </article>
