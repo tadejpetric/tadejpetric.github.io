@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sequential Parallelism</title>
+    <!-- Use your existing site-wide CSS for consistency -->
+    <link rel="stylesheet" href="../assets/css/styles.css" />
+    <link rel="stylesheet" href="../assets/css/blog_styles.css" />
+
+    <!-- MathJax for LaTeX support -->
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script"></script>
+
+    <!-- highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", (event) => {
+            hljs.highlightAll();
+        });
+    </script>
+</head>
+
+<body>
+    <header>
+        <h1>Tadej Petrič</h1>
+        <p>
+            <a href="mailto:tadej.petric1@gmail.com">tadej.petric1@gmail.com</a> |
+            <a href="https://www.linkedin.com/in/tadej-p-5b024987/">LinkedIn</a>
+        </p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="../index.html">Home</a></li>
+            <li><a href="../cv.html">CV</a></li>
+            <li><a href="../blog.html">All Blog Posts</a></li>
+            <li><a href="../cool-tidbits.html">Cool Tidbits</a></li>
+        </ul>
+    </nav>
+
+    <main class="blog-content">
+        <article>
+            <h2>Sequential Parallelism, pt 1</h2>
+            <p><em>Posted on January 31, 2025</em></p>
+
+            <p>
+                Recently, I've been reading a bit on various computer architectures and stumbled upon <a
+                    href="https://en.wikipedia.org/wiki/Explicitly_parallel_instruction_computing">EPIC</a>. One of the
+                most famous representatives of the EPIC paradigm is the Intel's Itanium processor family. The
+                architecture seems to be mostly dead by now; they haven't made any new processors since 2017, Linux
+                dropped support for the architecture and HP, the partner for the IA64 development, is dropping its
+                support for the architecture in 2025. These processors were based on the IA64 instruction set rather
+                than the x86 that most of us use today. In fact, it was probably created <emph>to be non-compatible
+                </emph> with x86, so they wouldn't have to share the license with AMD. Of course, a fresh start allows
+                you to try some new things, so they experimented a bit. Most prominent feature in the architecture is
+                the insane amount of registers. The 32 bit x86 processors have only 8 general purpose registers, x86-64
+                has 16, most RISC processors these days have 31 (register 0 being hardwired to 0, hence the odd number).
+                Itanium, however, has 128 general purpose registers. And an additional 128 floating point registers. Why
+                that would be useful is the topic of this blog post. Because no one (including me) is using Itanium
+                processors, we'll be exploring all of those advantages in x86-64 and use the ideas to make programs that
+                are faster than what C compilers can generate.
+            </p>
+            <h3>Problem statement</h3>
+            <p>
+                We'll be looking at a minimal example, a simple sum of numbers. Because the computers these days are a
+                bit quick, we'll be summing up 2GB worth of numbers 10 times. Let's first look at the code in C.
+            </p>
+            <pre>
+<code class="language-cpp">#include &lt;stdlib.h&gt;
+#define array_size 500000000
+
+static unsigned int array[array_size]; // Static so it doesn't annihilate the stack
+
+void set_array(unsigned int *array) {
+    // Element i gets value i
+    for (unsigned int i = 0; i < array_size; i++) {
+        array[i] = i;
+    }
+}
+
+int sum_elements(unsigned int *array) {
+    // Return sum of all elements, ignoring all overflows
+    unsigned int sum = 0;
+    for (unsigned int i = 0; i < array_size; i++) {
+        sum += array[i];
+    }
+    return sum;
+}
+
+int main() {
+    set_array(array);
+    // Volatile to prevent compiler from removing function calls
+    volatile int sum = 0; 
+    for (int i = 0; i < 10; i++) {
+        sum += sum_elements(array);
+    }
+    return 0;
+}</code></pre>
+            <p>So we're summing 500 million elements 10 times, each element 32bits long. The code itself is pretty
+                simple, we're just looping over the array and adding up one value at a time. Let's compile it and
+                benchmark the performance. We'll be compiling with GCC, but for now we'll be disabling SIMD (single
+                instruction multiple data) registers
+                and instructions. They don't really change anything, just the code gets more complicated to talk about.
+                We might add them back in the future, however (spoilers: there's part 1 in the title).</p>
+            <p>The command we'll be using to compile the program is</p>
+            <pre>gcc sum_c.c -O0 -mno-avx -mno-mmx -mno-sse -mno-sse2</pre>
+            <p>Of course we'll look at the performance with higher optimization settings as well. The numbers in the
+                table are an average runtime of 10 executions of the program.</p>
+            <table>
+                <tr>
+                    <th>O0</th>
+                    <th>O1</th>
+                    <th>O2</th>
+                    <th>O3</th>
+                </tr>
+                <tr>
+                    <td>8.8834</td>
+                    <td>1.5924</td>
+                    <td>1.619</td>
+                    <td>1.7643</td>
+                </tr>
+            </table>
+            <p>As expected, the least optimised setting O0 is the slowest. If we look at the generated assembly code, we
+                can see that it's quite odd. Due to the length of the generated assembly I am only providing the
+                relevant part, the loop of the sum_elements. I will be providing comments with the code and, since
+                assembly is a bit esoteric these days, an explanation of the code. And to make it even easier, let's
+                take a look at the basics of assembly as briefly as possible. If you already know the basics, skip ahead
+                to the next chapter.</p>
+            <h4>Assembly prerequisites</h4>
+            <p>Assembly has several registers, that behave similar to local variables in C. There is only a limited
+                amount of registers, if you need to store more variables you have to push them to the memory on the
+                stack. The most well known registers are <code class="language-x86asm">rax</code>, <code
+                    class="language-x86asm">rbx</code>, <code class="language-x86asm">rcx</code> and <code
+                    class="language-x86asm">rdx</code>. These are general purpose registers, so you can use them for
+                anything you want (though in practice they usually have dedicated roles, which you need to obey if
+                you're making your code compliant with code of other people) (some instructions which we won't use are
+                also limited to only certain registers). There is also the register <code
+                    class="language-x86asm">rbp</code>, which stores the location in the stack with the latest element
+                pushed to the stack (<emph>technically</emph> it's also a general purpose regis- I will be ignoring any
+                exceptions from now on, there's too many of them). </p>
+            <p>
+                All of the listed registers are 64 bit. We can only take the first 32 bits by writing <code
+                    class="language-x86asm">eax</code> instead of <code class="language-x86asm">rax</code> (and
+                similarly an e prefix instead of r for other registers). We can do operations on the registers. The
+                simplest one is <code class="language-x86asm">mov</code>, which acts sort of like the assignment
+                operator in C. So the equivalent of the C code
+            <pre><code class="language-cpp">int x = 0;
+int y = x;
+</code></pre>
+            would be
+            <pre><code class="language-x86asm">mov eax, 0
+mov ebx, eax 
+</code></pre>
+            We can add a number using the instruction <code class="language-x86asm">add</code>. Again, let's look at the
+            C equivalent.
+            <pre><code class="language-cpp">int x = 0;
+int y += x;
+</code></pre>
+            And the assembly version.
+            <pre><code class="language-x86asm">mov eax, 0
+add ebx, eax 
+</code></pre>
+            We also need to calculate the addresses of certain elements. This can be done with <code
+                class="language-x86asm">add</code> just fine, but x86 has a neat shorthand in form of <code
+                class="language-x86asm">lea</code> (which stands for load effective address). There is no exact C
+            equivalent, but the following code behaves the same in practice
+            <pre><code class="language-cpp">int x = 0;
+int y = &x[5];
+</code></pre>
+            And the assembly version, where the semicolon denotes the comment.
+            <pre><code class="language-x86asm">mov eax, 0
+lea ebx, [eax + 20] ; 5*4 = 20
+</code></pre>
+            Since we used 32bit registers, we need to move forward 4 bytes at a time (hence why we multiply 5 with 4,
+            which will be a common theme). Had we used 64 bit registers, that constant would be 8.
+
+            The final instructions we need are branches. We can compare two registers and then jump to a label depending
+            on the result. The C equivalent would be if statements and goto statements, but this one is pretty self
+            explanatory so let's look at the assembly code only. The instruction <code
+                class="language-x86asm">nop</code> does nothing.
+            <pre><code class="language-x86asm">cmp eax, ebx ; compare
+jl eax_is_less_than_ebx ; jump if less 
+je eax_is_equal_to_ebx ; jump if equal
+; jbe = jump if below or equal
+...
+eax_is_less_than_ebx:
+    nop ; executed if eax &lt; ebx
+    jmp endcmp ; jump unconditionally
+eax_is_equal_to_ebx:
+    nop ; executed if eax = ebx
+    jmp endcmp
+endcmp:
+    nop ; after branches, code continues here
+</code></pre>
+            We are now equipped to examine the GCC code.
+            </p>
+            <h4>GCC generated assembly</h4>
+            <p>The following code was generated by GCC with -O0 flag. On the stack at location <code
+                    class="language-x86asm">rbp-4</code> we store the loop variable i and, again on the stack, at
+                location <code class="language-x86asm">rbp-8</code> we store the value of the partial sum and at the
+                value <code class="language-x86asm">rbp-24</code> we store the address of the start of the array of all
+                numbers.</p>
+            <pre><code class="language-x86asm">.L6:
+	mov	eax, DWORD PTR -4[rbp] ; read value of i into register eax (eax = i)
+	lea	rdx, 0[0+rax*4] ; calculate which element from the array we want to read (rdx = 4*i)
+	mov	rax, QWORD PTR -24[rbp] ; read the address of the start of the array (rax = array)
+	add	rax, rdx ; rax = &array[i]
+	mov	eax, DWORD PTR [rax] ; eax = *(eax) (equivalent to = array[i])
+	add	DWORD PTR -8[rbp], eax ; partial_sum += eax (or partial_sum += array[i])
+	add	DWORD PTR -4[rbp], 1 ; increment i += 1
+.L5:
+	cmp	DWORD PTR -4[rbp], 499999999 ; check if loop is over
+	jbe	.L6</code></pre>
+            <p>We're ignoring the mess that happens because it's sometimes using 32-bit values and sometimes 64 bit
+                values. If all the instructions take the same amount of time, we can see that it spends most of its time
+                doing busywork. It takes 5 instructions to just read the element we want to add and only one instruction
+                actually adding the element. This is what -O1, -O2 and -O3 improve. Curiously, -O3 is the slowest of
+                them all and -O1 fastest, but the reasons for that aren't all that relevant for this blog post. We'll
+                look at the assembly code for -O3.</p>
+
+            <p>The code using the -O3 flag is much simpler. It's now not using the stack at all, it's only storing the
+                variables. The register <code class="language-x86asm">rdi</code> initially stores the start of the
+                array, while
+                the register <code class="language-x86asm">rdx</code> stores the end of the array (or rather one element
+                past the end). The register <code class="language-x86asm">eax</code> stores partial sums.</p>
+            <pre><code class="language-x86asm">.L13:
+    add	eax, DWORD PTR [rdi] ; eax += *ptr (or += array[i])
+    add	rdi, 4 ; ptr++ (or i++)
+    cmp	rdx, rdi ; if we're not at the end of the array yet
+    jne	.L13</code></pre>
+
+            This code seems much simpler and it looks about as simple as you can get. After all, we're always going to
+            need
+            to add the number for the partial sum. And we're always going to need to increment the pointer. And we're
+            always
+            going to need to compare whether we're finished yet. So there's no hope for improvement... But first, let's
+            rewrite the entire program in assembly by ourselves. If we do that, the code becomes readable and short.
+            We'll
+            show that this doesn't meaningfully change the performance.
+            <h3>Rewriting code ourselves</h3>
+            <p>I have written the program in x86 assembly from scratch, so that the results are easily reproducible
+                elsewhere. I'll first paste the entire program</p>
+            <pre><code class="language-x86asm">GLOBAL main
+%define array_len 500_000_000
+
+SECTION .bss
+    array resd array_len
+
+SECTION .text
+
+set_array:
+    xor eax, eax ; array index
+
+    startsetloop:
+        cmp eax, array_len ; if eax >= array_len, go to endsetloop
+        jge endsetloop
+        mov [array + 4*eax], eax ; array[eax] = eax
+        inc eax ; eax++
+        jmp startsetloop
+    endsetloop:
+
+    ret
+
+sum_array:
+    xor eax, eax ; partial sum carrier
+    xor ecx, ecx ; array index
+
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        add eax, [array + 4*rcx] ; eax += array[rcx]
+        inc rcx ; rcx++
+        jmp startsumloop
+    endsumloop:
+    ret
+
+main: ; start of the program
+    call set_array ; initialise the array
+    xor eax, eax ; eax = 0
+
+    startmainloop: ; call sum_array 10 times
+        cmp rax, 10
+        jge endmainloop
+        push rax
+        call sum_array
+        pop rax
+        inc rax
+        jmp startmainloop
+    endmainloop:
+    
+    xor eax, eax
+    ret
+</code></pre>
+            <p>The interesting function, and the one we're going to change, is sum_array. We're only going to be
+                changing that one, so let's look at it more closely</p>
+            <pre><code class="language-x86asm">sum_array:
+    xor eax, eax ; partial sum carrier
+    xor ecx, ecx ; array index
+
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        add eax, [array + 4*rcx] ; eax += array[rcx]
+        inc rcx ; rcx++
+        jmp startsumloop
+    endsumloop:
+    ret</code></pre>
+            <p>Let's examine the runtime. If I run the program 10 times, the average runtime is 1.6376s. This is quite
+                close to the GCC generated code. A bit slower than -O1, a bit faster than -O3, but nothing special.
+                Let's now do a trick that shouldn't change much. Instead of adding only one element at a time, we'll add
+                two elements per iteration of a loop. This should eliminate half of the branch checks, so the program is
+                more efficient, but ue to <a
+                    href="https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array">branch
+                    prediction</a>, this doesn't actually change all that much. Only one out of 500M elements is
+                actually choosing a different path of the branch, so the branch predictor quickly learns to optimize
+                that. Still, let's write out the code and benchmark it out, just to be sure (note that the code is only
+                valid if there's an even number of elements, but we don't care).</p>
+            <pre><code class="language-x86asm">set_array:
+    xor eax, eax ; array index
+
+    startsetloop:
+        cmp eax, array_len ; if eax >= array_len, go to endsetloop
+        jge endsetloop
+        add eax, [array + rcx*4] ; eax += array[rcx]
+        add eax, [array + rcx*4 + 4] ; eax += array[rcx+1]
+        add rcx, 2 ; rcx += 2
+        jmp startsetloop
+    endsetloop:
+    ret</code></pre>
+            <p>As we can see, now each iteration of the loop we're adding twice to eax. We measure the average time to
+                be 1.6061s, which is an improvement, but it's so small that we can't even be sure if it's due to fewer
+                branches or just random chance - for reference, the times vary by up to 0.03s within these 10 runs. Now
+                let's make a sneaky improvement: instead of adding twice to <code class="language-x86asm">eax</code>,
+                let's add once to <code class="language-x86asm">eax</code> and the other time to <code
+                    class="language-x86asm">ebx</code>. At the end, just add the two together to get the final result.
+                Because addition (even modular) is commutative, this will, of course, still work.</p>
+            <pre><code class="language-x86asm">sum_array:
+    xor eax, eax ; partial sum carrier
+    xor ebx, ebx ; partial sum carrier 2
+    xor rcx, rcx ; array index
+
+    startsumloop:
+        cmp rcx, array_len
+        jge endsumloop
+        add eax, [array + 4*rcx] ; eax += array[rcx]
+        add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
+        add rcx, 2 ; rcx += 2
+        jmp startsumloop
+    endsumloop:
+    add eax, ebx ; eax += ebx
+    ret</code></pre>
+            <p>And by now you know the drill, run it 10 times and check the benchmarks. We barely changed anything and
+                assembly should just run one instruction at a time anyway, so this shouldn't make a difference. So I
+                compute the average and it's again one point si- huh, 1.3386s. What is going on here.</p>
+            <h3>Instruction level parallelism</h3>
+            <p>What's happened is that we've accidentally created a program that runs in parallel. We've never created a
+                new thread, we've never created a new process, we haven't even used any SIMD instructions. But the two
+                add instructions</p>
+            <pre><code class="language-x86asm">add eax, [array + 4*rcx] ; eax += array[rcx]
+add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
+</code></pre>
+            <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the next instruction even if the one beforehand isn't finished. If the computation of the next instruction requires the result of the previous one (such as when we were adding to the same register twice), the second instruction will wait until it receives the result. However if the two instructions are completely independent, both of them can proceed at the same time. And since we weren't writing to the memory that the second register reads from, nor was that register already occupied before, there is nothing stopping us from executing both instructions at the same time - assuming of course, the hardware supports that. The x86 architecture processors support that since around 1995, with the first such processor being the original <a href="https://en.wikipedia.org/wiki/Pentium_(original)">Pentium</a>. So this is how we can write parallel code in a sequential program. A bit of an oxymoron, but it's justified.</p>
+            <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily mentioned one before in this blog post, branch prediction (and the related speculative execution). During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else" path of an if statement, for example). Then it goes and starts executing one. However the computer can't just work on a guess, it still has to go and check whether it selected the correct branch; it's just that it can go and check that while it's executing one of the paths (some architectures, specially GPU based ones like executing both paths without guessing). Then once it's determined whether the branch selection is correct, if it's correct it continues executing and if not, scraps it and starts the other option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done to some registers so it can be slower than just waiting for the result of the branch before proceeding, but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the result is know, while even in the best case without branch prediction, it has to start at the beginning once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
+            <p>There is also something related these processors can do with independent operations, they can arbitrarily swap their order of execution. So we can't even be sure whether our <code class="language-x86asm">eax</code> got added first or if, somehow, data got faster to <code class="language-x86asm">ebx</code> and that one began execution before it. That's known as out of order execution. So even though our assembly looks close to hardware and sequential, often, as we have seen, what happens in the machine isn't what exactly what we have written.</p>
+
+            <p>Wait for part 2!</p>
+        </article>
+    </main>
+
+    <footer>
+        <p>© 2025 Tadej Petrič</p>
+    </footer>
+</body>
+
+</html>
