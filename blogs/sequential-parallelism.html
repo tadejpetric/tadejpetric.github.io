@@ -53,10 +53,10 @@
                 architecture seems to be mostly dead by now; they haven't made any new processors since 2017, Linux
                 dropped support for the architecture and HP, the partner for the IA64 development, is dropping its
                 support for the architecture in 2025. These processors were based on the IA64 instruction set rather
-                than the x86 that most of us use today. In fact, it was probably created <emph>to be non-compatible
+                than the x86 that most of us use today. In fact, it was probably created <emph>to be incompatible
                 </emph> with x86, so they wouldn't have to share the license with AMD. Of course, a fresh start allows
                 you to try some new things, so they experimented a bit. Most prominent feature in the architecture is
-                the insane amount of registers. The 32 bit x86 processors have only 8 general purpose registers, x86-64
+                the insane amount of registers. The 32-bit x86 processors have only 8 general purpose registers, x86-64
                 has 16, most RISC processors these days have 31 (register 0 being hardwired to 0, hence the odd number).
                 Itanium, however, has 128 general purpose registers. And an additional 128 floating point registers. Why
                 that would be useful is the topic of this blog post. Because no one (including me) is using Itanium
@@ -99,7 +99,7 @@ int main() {
     }
     return 0;
 }</code></pre>
-            <p>So we're summing 500 million elements 10 times, each element 32bits long. The code itself is pretty
+            <p>So we're summing 500 million elements 10 times, each element 32 bits long. The code itself is pretty
                 simple, we're just looping over the array and adding up one value at a time. Let's compile it and
                 benchmark the performance. We'll be compiling with GCC, but for now we'll be disabling SIMD (single
                 instruction multiple data) registers
@@ -142,7 +142,7 @@ int main() {
                 pushed to the stack (<emph>technically</emph> it's also a general purpose regis- I will be ignoring any
                 exceptions from now on, there's too many of them). </p>
             <p>
-                All of the listed registers are 64 bit. We can only take the first 32 bits by writing <code
+                All of the listed registers are 64-bit. We can only take the first 32 bits by writing <code
                     class="language-x86asm">eax</code> instead of <code class="language-x86asm">rax</code> (and
                 similarly an e prefix instead of r for other registers). We can do operations on the registers. The
                 simplest one is <code class="language-x86asm">mov</code>, which acts sort of like the assignment
@@ -157,7 +157,7 @@ mov ebx, eax
             We can add a number using the instruction <code class="language-x86asm">add</code>. Again, let's look at the
             C equivalent.
             <pre><code class="language-cpp">int x = 0;
-int y += x;
+y += x;
 </code></pre>
             And the assembly version.
             <pre><code class="language-x86asm">mov eax, 0
@@ -168,14 +168,14 @@ add ebx, eax
                 class="language-x86asm">lea</code> (which stands for load effective address). There is no exact C
             equivalent, but the following code behaves the same in practice
             <pre><code class="language-cpp">int x = 0;
-int y = &x[5];
+int* y = &x[5];
 </code></pre>
             And the assembly version, where the semicolon denotes the comment.
             <pre><code class="language-x86asm">mov eax, 0
 lea ebx, [eax + 20] ; 5*4 = 20
 </code></pre>
-            Since we used 32bit registers, we need to move forward 4 bytes at a time (hence why we multiply 5 with 4,
-            which will be a common theme). Had we used 64 bit registers, that constant would be 8.
+            Since we used 32-bit registers, we need to move forward 4 bytes at a time (hence why we multiply 5 with 4,
+            which will be a common theme). Had we used 64-bit registers, that constant would be 8.
 
             The final instructions we need are branches. We can compare two registers and then jump to a label depending
             on the result. The C equivalent would be if statements and goto statements, but this one is pretty self
@@ -214,7 +214,7 @@ endcmp:
 .L5:
 	cmp	DWORD PTR -4[rbp], 499999999 ; check if loop is over
 	jbe	.L6</code></pre>
-            <p>We're ignoring the mess that happens because it's sometimes using 32-bit values and sometimes 64 bit
+            <p>We're ignoring the mess that happens because it's sometimes using 32-bit values and sometimes 64-bit
                 values. If all the instructions take the same amount of time, we can see that it spends most of its time
                 doing busywork. It takes 5 instructions to just read the element we want to add and only one instruction
                 actually adding the element. This is what -O1, -O2 and -O3 improve. Curiously, -O3 is the slowest of
@@ -312,7 +312,7 @@ main: ; start of the program
                 close to the GCC generated code. A bit slower than -O1, a bit faster than -O3, but nothing special.
                 Let's now do a trick that shouldn't change much. Instead of adding only one element at a time, we'll add
                 two elements per iteration of a loop. This should eliminate half of the branch checks, so the program is
-                more efficient, but ue to <a
+                more efficient, but due to <a
                     href="https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array">branch
                     prediction</a>, this doesn't actually change all that much. Only one out of 500M elements is
                 actually choosing a different path of the branch, so the branch predictor quickly learns to optimize
@@ -322,7 +322,7 @@ main: ; start of the program
     xor eax, eax ; array index
 
     startsetloop:
-        cmp eax, array_len ; if eax >= array_len, go to endsetloop
+        cmp rcx, array_len
         jge endsetloop
         add eax, [array + rcx*4] ; eax += array[rcx]
         add eax, [array + rcx*4 + 4] ; eax += array[rcx+1]
@@ -363,8 +363,8 @@ main: ; start of the program
 add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
 </code></pre>
             <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the next instruction even if the one beforehand isn't finished. If the computation of the next instruction requires the result of the previous one (such as when we were adding to the same register twice), the second instruction will wait until it receives the result. However if the two instructions are completely independent, both of them can proceed at the same time. And since we weren't writing to the memory that the second register reads from, nor was that register already occupied before, there is nothing stopping us from executing both instructions at the same time - assuming of course, the hardware supports that. The x86 architecture processors support that since around 1995, with the first such processor being the original <a href="https://en.wikipedia.org/wiki/Pentium_(original)">Pentium</a>. So this is how we can write parallel code in a sequential program. A bit of an oxymoron, but it's justified.</p>
-            <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily mentioned one before in this blog post, branch prediction (and the related speculative execution). During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else" path of an if statement, for example). Then it goes and starts executing one. However the computer can't just work on a guess, it still has to go and check whether it selected the correct branch; it's just that it can go and check that while it's executing one of the paths (some architectures, specially GPU based ones like executing both paths without guessing). Then once it's determined whether the branch selection is correct, if it's correct it continues executing and if not, scraps it and starts the other option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done to some registers so it can be slower than just waiting for the result of the branch before proceeding, but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the result is know, while even in the best case without branch prediction, it has to start at the beginning once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
-            <p>There is also something related these processors can do with independent operations, they can arbitrarily swap their order of execution. So we can't even be sure whether our <code class="language-x86asm">eax</code> got added first or if, somehow, data got faster to <code class="language-x86asm">ebx</code> and that one began execution before it. That's known as out of order execution. So even though our assembly looks close to hardware and sequential, often, as we have seen, what happens in the machine isn't what exactly what we have written.</p>
+            <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily mentioned one before in this blog post, branch prediction (and the related speculative execution). During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else" path of an if statement, for example). Then it goes and starts executing one. However the computer can't just work on a guess, it still has to go and check whether it selected the correct branch; it's just that it can go and check that while it's executing one of the paths (some architectures, especially GPU-based ones like executing both paths without guessing). Then once it's determined whether the branch selection is correct, if it's correct it continues executing and if not, scraps it and starts the other option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done to some registers so it can be slower than just waiting for the result of the branch before proceeding, but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the result is known, while even in the best case without branch prediction, it has to start at the beginning once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
+            <p>There is also something related these processors can do with independent operations, they can arbitrarily swap their order of execution. So we can't even be sure whether our <code class="language-x86asm">eax</code> got added first or if, somehow, the data was available sooner for <code class="language-x86asm">ebx</code> and that one began the execution first. That's known as out of order execution. So even though our assembly looks close to hardware and sequential, often, as we have seen, what happens in the machine isn't exactly what our sequential code appears to dictate.</p>
 
             <p>Wait for part 2!</p>
         </article>
