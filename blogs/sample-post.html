@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sample Blog Post</title>
+  <!-- Use your existing site-wide CSS for consistency -->
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <link rel="stylesheet" href="../assets/css/blog_styles.css" />
+  
+  <!-- MathJax for LaTeX support -->
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
+          id="MathJax-script"></script>
+
+  <!-- highlight.js for syntax highlighting -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", (event) => {
+      hljs.highlightAll();
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Tadej Petrič</h1>
+    <p>
+      <a href="mailto:your_email@example.com">your_email@example.com</a> |
+      <a href="https://www.linkedin.com/in/yourlinkedin">LinkedIn</a>
+    </p>
+  </header>
+
+  <nav>
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../cv.html">CV</a></li>
+      <li><a href="../blog.html">All Blog Posts</a></li>
+      <li><a href="../cool-tidbits.html">Cool Tidbits</a></li>
+    </ul>
+  </nav>
+
+  <main class="blog-content">
+    <article>
+      <h2>Sample Blog Post Title</h2>
+      <p><em>Posted on January 31, 2025 by Your Name</em></p>
+      
+      <p>
+        Welcome to this sample blog post. I'm demonstrating inline math like
+        \(E = mc^2\) and also display math:
+      </p>
+      <p>
+        \[
+          \int_{0}^{1} x^n \, dx = \frac{1}{n+1}.
+        \]
+      </p>
+      
+      <h3>Sample Code Blocks</h3>
+      <p>
+        Below are some short code examples in different languages, highlighted
+        with <strong>highlight.js</strong>.
+      </p>
+      
+      <h4>C++ Example</h4>
+      <pre><code class="language-cpp">
+#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "Hello, C++ World!" << endl;
+    return 0;
+}
+      </code></pre>
+
+      <h4>Python Example</h4>
+      <pre><code class="language-python">
+def fibonacci(n):
+    """Return the n-th Fibonacci number."""
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(10))  # Prints the 10th Fibonacci number
+      </code></pre>
+      
+      <h4>x86 Assembly Example</h4>
+      <pre><code class="language-x86asm">
+section .data
+    msg db "Hello, Assembly!", 0
+
+section .text
+    global _start
+
+_start:
+    ; write() system call
+    mov eax, 4      ; sys_write
+    mov ebx, 1      ; file descriptor: stdout
+    mov ecx, msg    ; message to write
+    mov edx, 17     ; message length
+    int 0x80
+    
+    ; exit() system call
+    mov eax, 1      ; sys_exit
+    xor ebx, ebx    ; status = 0
+    int 0x80
+      </code></pre>
+      
+      <p>That's all for this sample post. Now you have a functioning example that combines text, LaTeX, and syntax-highlighted code blocks.</p>
+    </article>
+  </main>
+
+  <footer>
+    <p>© 2025 Your Name</p>
+  </footer>
+</body>
+</html>

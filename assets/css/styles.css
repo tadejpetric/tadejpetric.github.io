@@ -1,0 +1,72 @@
+/* Base reset and font settings */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #fff;
+  color: #333;
+  line-height: 1.6;
+  margin: 20px auto;
+  max-width: 800px;
+  padding: 0 20px;
+}
+
+/* Header */
+header {
+  margin-bottom: 20px;
+}
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+header p {
+  margin-bottom: 0.5rem;
+}
+
+/* Navigation */
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+nav ul li {
+  display: inline-block;
+}
+nav a {
+  text-decoration: none;
+  color: #007acc;
+}
+nav a:hover {
+  text-decoration: underline;
+}
+
+/* Main Content */
+main h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Featured posts list */
+#featured-posts ul {
+  list-style: disc;
+  margin-left: 20px;
+  margin-bottom: 2rem;
+}
+#featured-posts li {
+  margin-bottom: 0.5rem;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+
