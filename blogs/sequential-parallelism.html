@@ -72,7 +72,8 @@
 <code class="language-cpp">#include &lt;stdlib.h&gt;
 #define array_size 500000000
 
-static unsigned int array[array_size]; // Static so it doesn't annihilate the stack
+// Static so it doesn't annihilate the stack
+static unsigned int array[array_size]; 
 
 void set_array(unsigned int *array) {
     // Element i gets value i
