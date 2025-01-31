@@ -49,13 +49,14 @@
             <p>
                 Recently, I've been reading a bit on various computer architectures and stumbled upon <a
                     href="https://en.wikipedia.org/wiki/Explicitly_parallel_instruction_computing">EPIC</a>. One of the
-                most famous representatives of the EPIC paradigm is the Intel's Itanium processor family. The
+                most famous representatives of the EPIC paradigm is Intel's Itanium processor family. The
                 architecture seems to be mostly dead by now; they haven't made any new processors since 2017, Linux
                 dropped support for the architecture and HP, the partner for the IA64 development, is dropping its
                 support for the architecture in 2025. These processors were based on the IA64 instruction set rather
                 than the x86 that most of us use today. In fact, it was probably created <emph>to be incompatible
                 </emph> with x86, so they wouldn't have to share the license with AMD. Of course, a fresh start allows
-                you to try some new things, so they experimented a bit. Most prominent feature in the architecture is
+                you to try some new things, so they experimented a bit. The most prominent feature of the architecture
+                is
                 the insane amount of registers. The 32-bit x86 processors have only 8 general purpose registers, x86-64
                 has 16, most RISC processors these days have 31 (register 0 being hardwired to 0, hence the odd number).
                 Itanium, however, has 128 general purpose registers. And an additional 128 floating point registers. Why
@@ -65,8 +66,8 @@
             </p>
             <h3>Problem statement</h3>
             <p>
-                We'll be looking at a minimal example, a simple sum of numbers. Because the computers these days are a
-                bit quick, we'll be summing up 2GB worth of numbers 10 times. Let's first look at the code in C.
+                We'll be looking at a minimal example, a simple sum of numbers. Because computers these days are a
+                bit too quick, we'll be summing up 2GB worth of numbers 10 times. Let's first look at the code in C.
             </p>
             <pre>
 <code class="language-cpp">#include &lt;stdlib.h&gt;
@@ -358,15 +359,16 @@ main: ; start of the program
                 compute the average and it's again one point si- huh, 1.3386s. What is going on here.</p>
             <h3>Instruction level parallelism</h3>
             <p>What's happened is that we've accidentally created a program that runs in parallel. We've never created a
-                new thread, we've never created a new process, we haven't even used any SIMD instructions. But the two
+                new thread, we've never created a new process, we haven't even used any SIMD instructions. Yet, the two
                 add instructions</p>
             <pre><code class="language-x86asm">add eax, [array + rcx*4] ; eax += array[rcx]
 add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
 </code></pre>
-            <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the
+            <p>can still execute simultaneously. Modern processors have a special mechanism where they attempt to
+                execute the
                 next instruction even if the one beforehand isn't finished. If the computation of the next instruction
                 requires the result of the previous one (such as when we were adding to the same register twice), the
-                second instruction will wait until it receives the result. However if the two instructions are
+                second instruction will have to wait until the first one completes. However, if the two instructions are
                 completely independent, both of them can proceed at the same time. And since we weren't writing to the
                 memory that the second register reads from, nor was that register already occupied before, there is
                 nothing stopping us from executing both instructions at the same time - assuming of course, the hardware
@@ -377,22 +379,24 @@ add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
             <p>Of course that isn't the only such instance of parallelism in modern processors - we've even sneakily
                 mentioned one before in this blog post, branch prediction (and the related speculative execution).
                 During a branch prediction, the processor guesses which path a branch will take (the "if" or the "else"
-                path of an if statement, for example). Then it goes and starts executing one. However the computer can't
-                just work on a guess, it still has to go and check whether it selected the correct branch; it's just
-                that it can go and check that while it's executing one of the paths (some architectures, especially
-                GPU-based ones like executing both paths without guessing). Then once it's determined whether the branch
-                selection is correct, if it's correct it continues executing and if not, scraps it and starts the other
-                option from the beginning. Even if it's incorrect it's not that tragic - it has to reverse the work done
-                to some registers so it can be slower than just waiting for the result of the branch before proceeding,
-                but ignoring that; in the worst case with branch prediction it has to restart at the beginning once the
-                result is known, while even in the best case without branch prediction, it has to start at the beginning
-                once the result is known. So if the "rollback" is fast enough, we get a massive improvement</p>
+                path of an if statement, for example). It then begins executing that path speculatively. However the
+                computer can't just rely on a guess, it still has to go and verify whether that guess was correct; it's
+                just that it can go and check that while it's executing one of the paths (some
+                architectures, especially GPU-based ones like executing both paths without guessing). Then once it's
+                determined whether the branch selection is correct, if it's correct it continues executing and if not,
+                scraps it and starts the other option from the beginning. Even if it's incorrect it's not that tragic -
+                it has to reverse the work done to some registers so it can be slower than just waiting for the result
+                of the branch before proceeding, but ignoring that; in the worst case with branch prediction it has to
+                restart at the beginning once the result is known, while even in the best case without branch
+                prediction, it has to start at the beginning once the result is known. So if the "rollback" is fast
+                enough, we get a massive improvement</p>
             <p>There is also something related these processors can do with independent operations, they can arbitrarily
                 swap their order of execution. So we can't even be sure whether our <code
                     class="language-x86asm">eax</code> got added first or if, somehow, the data was available sooner for
                 <code class="language-x86asm">ebx</code> and that one began the execution first. That's known as out of
                 order execution. So even though our assembly looks close to hardware and sequential, often, as we have
-                seen, what happens in the machine isn't exactly what our sequential code appears to dictate.</p>
+                seen, what happens in the machine isn't exactly what our code appears to dictate.
+            </p>
 
             <p>Wait for part 2!</p>
         </article>
