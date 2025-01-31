@@ -257,7 +257,7 @@ set_array:
     startsetloop:
         cmp eax, array_len ; if eax >= array_len, go to endsetloop
         jge endsetloop
-        mov [array + 4*eax], eax ; array[eax] = eax
+        mov [array + eax*4], eax ; array[eax] = eax
         inc eax ; eax++
         jmp startsetloop
     endsetloop:
@@ -271,7 +271,7 @@ sum_array:
     startsumloop:
         cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
         jge endsumloop
-        add eax, [array + 4*rcx] ; eax += array[rcx]
+        add eax, [array + rcx*4] ; eax += array[rcx]
         inc rcx ; rcx++
         jmp startsumloop
     endsumloop:
@@ -303,7 +303,7 @@ main: ; start of the program
     startsumloop:
         cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
         jge endsumloop
-        add eax, [array + 4*rcx] ; eax += array[rcx]
+        add eax, [array + rcx*4] ; eax += array[rcx]
         inc rcx ; rcx++
         jmp startsumloop
     endsumloop:
@@ -345,7 +345,7 @@ main: ; start of the program
     startsumloop:
         cmp rcx, array_len
         jge endsumloop
-        add eax, [array + 4*rcx] ; eax += array[rcx]
+        add eax, [array + rcx*4] ; eax += array[rcx]
         add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
         add rcx, 2 ; rcx += 2
         jmp startsumloop
@@ -359,7 +359,7 @@ main: ; start of the program
             <p>What's happened is that we've accidentally created a program that runs in parallel. We've never created a
                 new thread, we've never created a new process, we haven't even used any SIMD instructions. But the two
                 add instructions</p>
-            <pre><code class="language-x86asm">add eax, [array + 4*rcx] ; eax += array[rcx]
+            <pre><code class="language-x86asm">add eax, [array + rcx*4] ; eax += array[rcx]
 add ebx, [array + rcx*4 + 4] ; ebx += array[rcx+1]
 </code></pre>
             <p>still ran simultaneously. Modern processors have a special mechanism where they attempt to execute the
