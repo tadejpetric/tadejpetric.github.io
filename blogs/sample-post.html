@@ -1,20 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sample Blog Post</title>
-  <!-- Use your existing site-wide CSS for consistency -->
+  <meta name="description" content="How sequential programs can sometimes be execution in parallel.">
+
+  <!-- OpenGraph tags-->
+  <meta property="og:title" content="Sequential Parallelism" />
+  <meta property="og:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
+  <meta property="og:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
+  <meta property="og:image:width" content="769" />
+  <meta property="og:image:height" content="373" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tadejpetric.github.io/blogs/sequential-parallelism.html" />
+  <meta property="og:site_name" content="Tadej Petrič" />
+  <meta property="og:description" content="How sequential programs can sometimes be executed in parallel." />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Sequential Parallelism" />
+  <meta name="twitter:description" content="How sequential programs can sometimes be executed in parallel." />
+  <meta name="twitter:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
+  <meta name="twitter:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
+  <meta name="twitter:site" content="@tadejpetric1" />
+  <meta name="twitter:creator" content="@tadejpetric1" />
+
   <link rel="stylesheet" href="../assets/css/styles.css" />
   <link rel="stylesheet" href="../assets/css/blog_styles.css" />
-  
+
   <!-- MathJax for LaTeX support -->
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
-          id="MathJax-script"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script"></script>
 
   <!-- highlight.js for syntax highlighting -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
   <script>
@@ -23,6 +43,7 @@
     });
   </script>
 </head>
+
 <body>
   <header>
     <h1>Tadej Petrič</h1>
@@ -51,16 +72,16 @@
       </p>
       <p>
         \[
-          \int_{0}^{1} x^n \, dx = \frac{1}{n+1}.
+        \int_{0}^{1} x^n \, dx = \frac{1}{n+1}.
         \]
       </p>
-      
+
       <h3>Sample Code Blocks</h3>
       <p>
         Below are some short code examples in different languages, highlighted
         with <strong>highlight.js</strong>.
       </p>
-      
+
       <h4>C++ Example</h4>
       <pre><code class="language-cpp">
 #include <iostream>
@@ -82,7 +103,7 @@ def fibonacci(n):
 
 print(fibonacci(10))  # Prints the 10th Fibonacci number
       </code></pre>
-      
+
       <h4>x86 Assembly Example</h4>
       <pre><code class="language-x86asm">
 section .data
@@ -104,8 +125,9 @@ _start:
     xor ebx, ebx    ; status = 0
     int 0x80
       </code></pre>
-      
-      <p>That's all for this sample post. Now you have a functioning example that combines text, LaTeX, and syntax-highlighted code blocks.</p>
+
+      <p>That's all for this sample post. Now you have a functioning example that combines text, LaTeX, and
+        syntax-highlighted code blocks.</p>
     </article>
   </main>
 
@@ -113,4 +135,5 @@ _start:
     <p>© 2025 Tadej Petrič</p>
   </footer>
 </body>
+
 </html>
