@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>From graphs to words</title>
+  <meta name="description" content="How to derive the transformer architecture from graph neural networks as well as build up graph neural network from scratch.">
+
+  <!-- OpenGraph tags-->
+  <meta property="og:title" content="From graphs to words" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tadejpetric.github.io/blogs/sequential-parallelism.html" />
+  <meta property="og:site_name" content="Tadej Petrič" />
+  <meta property="og:description" content="How to derive the transformer architecture from graph neural networks as well as build up graph neural network from scratch." />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="From graphs to words" />
+  <meta name="twitter:description" content="How to derive the transformer architecture from graph neural networks as well as build up graph neural network from scratch." />
+  <meta name="twitter:site" content="@tadejpetric1" />
+  <meta name="twitter:creator" content="@tadejpetric1" />
+
+  <link rel="stylesheet" href="../assets/css/styles.css" />
+  <link rel="stylesheet" href="../assets/css/blog_styles.css" />
+
+  <!-- MathJax for LaTeX support -->
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script"></script>
+
+  <!-- highlight.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", (event) => {
+      hljs.highlightAll();
+    });
+  </script>
+</head>
+
+<body>
+  <header>
+    <h1>Tadej Petrič</h1>
+    <p>
+      <a href="mailto:tadej.petric1@gmail.com">tadej.petric1@gmail.com</a> |
+      <a href="https://www.linkedin.com/in/tadej-p-5b024987/">LinkedIn</a> |
+      <a href="https://github.com/tadejpetric">GitHub</a>
+    </p>
+  </header>
+
+  <nav>
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../cv.html">CV</a></li>
+      <li><a href="../blog.html">All Blog Posts</a></li>
+      <li><a href="../cool-tidbits.html">Cool Tidbits</a></li>
+    </ul>
+  </nav>
+
+  <main class="blog-content">
+    <article>
+      <h2>From Graphs to Words</h2>
+      <p><em>Posted on February 5, 2025</em></p>
+      <p>
+        AI's been making all the headlines and there's been one dominant AI architecture that stood out: the <a
+          href="https://arxiv.org/abs/1706.03762">transformer</a>. The traditional, as well as historical, motivation
+        for the architecture has been the introduction of the attention mechanism to recurrent neural networks, which
+        itself can be seen as the natural evolution of other memory systems, such as <a
+          href="https://en.wikipedia.org/wiki/Gated_recurrent_unit">GRU</a> (and <a
+          href="https://en.wikipedia.org/wiki/Long_short-term_memory">LSTM</a> before it). There's been a myriad of
+        articles following that route already. We'll approach this differently and show how there's one natural neural
+        network on graphs (a graph being a set of nodes and edges, not the curve in a coordinate system) and how the
+        transformer arises if one view natural language modelling.
+      </p>
+      <p>
+        This article has some light prerequisites. One should know the old multilayer perceptron neural networks work
+        (just a stack of linear layers and activation functions). Some light sense of linear algebra and graph theory
+        also wouldn't hurt, but not much beyond knowing what an adjacency matrix is is strictly required.
+      </p>
+      <h3>Motivating problem</h3>
+      <p>Every solution is best viewed through a specific motivating problem. We know we want to derive an architecture
+        called a "graph neural network", so let's consider some problems that lend themselves naturally to graphs. The
+        most obvious example of a graph is usually the social graph, but we'll follow a different route: weather
+        prediction. I will be loosely referencing Google's <a
+          href="https://deepmind.google/discover/blog/graphcast-ai-model-for-faster-and-more-accurate-global-weather-forecasting/">GraphCast</a>
+        for this (although we will simplify a lot of the details).</p>
+
+      <p>Suppose we have weather measurement stations all across the world. This allows us to consider any individual
+        network station and try to predict its future state. For example, one might train a LSTM network on the
+        temperatures recorded by a station; then given the data of the current week, it would try to predict the data
+        for the next week. We also have plenty of data to train the model on, since we can use each station's weather
+        history as a separate datapoint. The model however underperforms, as the weather stations aren't all
+        independent. If there's wind blowing at station A in the direction of the station B, one might naturally expect
+        that soon enough, wind will be blowing at station B as well. So then we might put as inputs to the neural
+        network the neighbouring stations as well, rather than only the one we're trying to make a forecast of. But then
+        what about the neighbours of those newly added stations as well? They would help a bit less, sure, but they
+        might still be valuable, specially far into the future. Okay, one might think, let's just add ALL the stations
+        to our LSTM and then predict using that - we have the best information, so we'd expect the best results. That
+        causes a different issue, however. The parameters of a neural network will blow up and the data required to
+        train it will blow up. Additionally, now we lose a lot of the training samples, since before each weather
+        station could give us a new datasample but now we've collected them all into one massive sample, which loses us
+        most of the training data.</p>
+
+      <p>The solution, for us, is to view the earth through the lens of graph theory. Each measurement station
+        represents a node in the graph. Neighbouring stations will be connected. With some clever data regularization we
+        can simplify the model for ourselves and just triangulate the entire globe. GraphCast thus defined approximately
+        one million such equidistant vertices.</p>
+      <a title="House, CC BY-SA 3.0 &lt;https://creativecommons.org/licenses/by-sa/3.0&gt;, via Wikimedia Commons"
+        href="https://commons.wikimedia.org/wiki/File:Zeroth_stellation_of_icosahedron.svg"><img width="512"
+          alt="Zeroth stellation of icosahedron"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Zeroth_stellation_of_icosahedron.svg/512px-Zeroth_stellation_of_icosahedron.svg.png?20220212190617"></a>
+      <p>A simpler example would be this icosahedron, it has 12 vertices and 30 edges. Each vertex would represent a
+        point on the globe where we have prior weather data (stored as a vector belonging to a node), edges
+        show us nearby datapoints. We now wish to predict the future state of any vertex given past states of every
+        vertex and we wish to do so efficiently. If we want to predict further out in the future, we can continue autoregressively: take the newly predicted data and use it as an input to our neural network. We can repeat this as many times as we like, though, the accuracy goes down as errors accumulate.</p>
+
+      <h3>Neural networks on graphs</h3>
+      <p>Now we start building neural networks on graph from scratch, in a (hopefully) motivated manner. I'll be using the mathematical terms (e.g. "vertex" instead of "weather station", "vector" instead of "measurement data") throughout the article to be as general as possible, but we'll frequently return to the motivating example when adding new features to the neural network (sometimes citing their codebase directly, but you are not required to read it).</p>
+      <p>So formally, we have a graph with nodes (or vertices) and edges. Each node has a corresponding vector. We are given a graph (with all the vectors) and we wish to predict a new graph, representing a future timestep. The structure of the graph will remain the same, so we're only interested in predicting the vectors themselves. There is no need to predict them all at once, we can do it one at a time. So we take a graph (with all the vectors) and wish to predict a single vector as output - representing the future state of that vertex.</p>
+      <h4>Linear layers</h4>
+      <p>We start with something simple and something we already know. We want to have a model that "works" in the current formalism of graph theory. It doesn't have to work <emph>well</emph>, we just need something to build upon. So let's ignore all the interesting structure of the graph and focus on vertices. If we wish to predict the future state of a vertex v, we just take the vector of data corresponding to that vertex, pass it through a few linear layers with activation functions in-between and get the output.</p>
+      <h4>Positional encoding</h4>
+      <p>We know the nodes, but sometimes additional information about their location is handy. With our weather example, that might be the latitude and longitude; after all, weather near the equator behaves completely differently to the polar weather. So we wish to add the GPS data to our vector.</p>
+      <p>There are two main ways to add the positional information to the vectors. One is a simple concatenation. We have some vector that tells us about the position of the node and we just concatenate it to the vector for the node. The other way is to transform the position data into a vector of equal size as the node's vector, then add the two together. Given a strong neural network, it learns how to extract the relevant data using either method, so it's just a matter of what works best for the task at hand. Usually if the nodes encode a lot of data (like ours do), concatenating is better whereas if they encode little data (which would be the case in a one-hot vector), adding is preferred.</p>
+
+      <p>No matter which method we choose, we usually have to preprocess the data first. We'll look at one common way to achieve that; to do so, we have to borrow the sine-cosine from signal processing. If we take a number \(x\), we can look at its frequency decomposition. That means we compute the following values:</p>
+      \[
+      y_{2i} = \sin(\frac{x}{n^{i\cdot 2/d}})
+      y_{2i+1} = \cos(\frac{x}{n^{i\cdot 2/d}})
+      \]
+      <p>Where \(n\) is a fixed constant (a hyperparameter), \(d\) is the dimension of the positional embedding and \(i\) ranges from \(0\) to \(\frac{d}{2}\). Using this, we get a vector \(y\) of dimension \(d\). Additionally, this vector describes the position data well enough, it's easy for the model to reverse our transformation.</p>
+      <p>This is also what GraphCast uses. They define a function <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/model_utils.py#L24">get_graph_spatial_features</a> to compute these positional embeddings then build them into a mesh in  <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/graphcast.py#L519">_init_mesh_graph</a> which is initialised in <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/graphcast.py#L357">__call__</a>. Graphcast then just concatenates the data in a smart way before sending it to the rest of the neural network. On the other hand, if we choose \(d\) to be the dimension of the node's vector, the positional encoding has the same dimension as the node's vector, so we could add them together. Some newer methods are slightly different (such as <a href="https://arxiv.org/abs/2104.09864">RoPE</a> which uses rotations instead of sums to combine the vectors), but the same principles apply using all methods.</p>
+
+      <p>This way we managed to add information about the node's position. Let's now try to incorporate the information from neighbouring nodes as well. Since we embedded positional information directly into the node, if we manage to incorporate neighbour's data, we'll also incorporate their position for free! So while graphs don't have a defined orientation (e.g. we don't know if a node is to the north or the south), this mechanism allows us not to worry about it. If we just combine all the data from neighbours in <emph>any</emph> order, the neural network has all the required data to understand which neighbour is in which direction. For the rest of the blog post, when I say "node's data", I mean "node's data combined with positional information" (but we only add the information in the very beginning. When we extend the process to multiple layers, we are not adding more positional information after every layer).</p>
+
+      <h4>Attending to neighbours</h4>
+      <p>We saw that one simple way to add information to a node is via addition - we could add information about a node's position by just adding the position vector to the node's data. Now we do something similar to add the information from neighbouring nodes, we simply add them to our node. Well - a little bit more complex. If we add nodes together, the model will struggle to differentiate what came from the current node and what from the neighbours node. It's easy to fix this by adding just to pass neighbour's data through simple linear layer before combining. Let's write this out formally.</p>
+
+      <p>We denote \(x_v\) the vector for the node \(v\). We want to produce an output vector \(y_v\) for that same node. We have matrices \(V'\) and \(V\), that act as trainable parameters of the model (linear layers). We iterate through the neighbours of \(v\) and compute the <emph>representations</emph> of the neighbouring vectors; if \(u\) is a neighbour, \(V x_u\) is the representation of that neighbour. To get the representation of all neighbours simply sum them up.</p>
+      \[
+      m_v = \sum_{u\in N(v)} V x_u
+      \]
+      <p>Additionally, compute the representation of our current node \(v\). To distinguish it, we use the matrix \(V'\) this time, resulting in \(V'x_v\). Lastly, let \(\sigma\) bi our activation function. Then we can define output as</p>
+      \[
+      y_v = \sigma(V'x_v + m_v)
+      \]
+      <p>Now the vector \(y_v\) has information not only about itself, but also about its neighbours. </p>
+      <h4>Attending to neighbours (deeply)</h4>
+      <p>We can iterate the above definitions to create a multi-layer graph operation. Initially, each node only encodes the data about itself. After one iteration, as we've seen in \(y_v\), the node encodes not only information about itself, but also its neighbours. When we iterate this further it will encoded also neighbours' neighbours at the second iteration and then the neighbours of neighbours' neighbrous on the third iteration and so on. To prevend exploding gradients, we modify the above definitions slightly, as well as use some notation that's more conducive to this iterative process.</p>
+
+      <p>With \(x_v^{(i)}\) we denote the <emph>embedding</emph> of the vertex \(v\) after \(i\) iterations. In the first step it's unchanged (\(x_v^{(0)}=x_v\)) and after one step it's as in the output of the previous chapter (\(x_v^{(1)} = y_v\)). Using \(V_i\) and \(Q_i\) we denote the learnable parameters and with \(d_v\) the degree of the vertex \(v\). Then we define the representation of neighbours as</p>
+      \[
+      m_v^{(i)} = \sum_{u\in N(v)} \frac{1}{d_v} V_i x_u^{(i)},
+      \]
+      and the result of one iteration as 
+      \[
+      x_v^{(i+1)} = \sigma(V_i' x_v^{(i)} + m_v^{(i)}).
+      \]
+      <p>Now the vector \(x_v^{(i)}\) sources information from up to \(i\) vertices away (using the shortest path in a graph). The mechanism is sometimes referred as "message passing". At each iteration, the nodes sends and receives the information about its direct neighbours, as well as all the information it's obtained in the past. The first message you get only includes the information from your neighbours. By the time you'd receive the second message from your neighbours, they themselves obtained information about the neighbours too, so they forward it to you in the next step. The more messages you get, the further away you see the information.</p>
+
+      <p>In GraphCast, after the positional embeddings are computed, they are passed into a graph neural network, quite similar to ours, found in the class <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/deep_typed_graph_net.py#L53">DeepTypedGraphNet</a>. The function <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/deep_typed_graph_net.py#L356">_process</a> iterates the message passing process and each individual step can be found in <a href="https://github.com/google-deepmind/graphcast/blob/main/graphcast/deep_typed_graph_net.py#L356">_process_step</a>. They refer to the graph obtained after each iteration of message passing as a latent graph. We're now finished with weather prediction and have a pretty solid model. The one used by Google is a bit more complex and optimized, but getting into the specifics would just distract from the core. I should also add that this model is not the SOTA anymore - Google released <a href="https://deepmind.google/discover/blog/gencast-predicts-weather-and-the-risks-of-extreme-conditions-with-sota-accuracy/">another model</a> just a year after. That one is not based on graph neural networks but it's a diffusion denoiser model. However our goal wasn't to have the best weather prediction model but to understand transformers. And given that their diffusion model uses the transformer, I would consider this time well spent regardless.</p>
+
+      <p>This defines the graph neural network architecture. The architecture can also be generalised further. For instance, we could work on directed graph instead of undirected, that way messages can only be passed one way</p>
+
+      <h3>Transformers</h3>
+      <p>We're now equipped to see how the fabled transformer works. The architecture works on all kinds of modalities, but we'll initially stick to the original implementation, which used it in natural language processing tasks. We also won't implement the transformer in its full strength, instead we'll stick to the decoder-only (or encoder-only, they are similar) transformers (which are used in LLMs).</p>
+      <p>We take an arbitrary english sentence, for example "In the morning, I woke up. Then I went to work.". We tokenize it and, for simplicity, let's say the tokens are words. So we're left with a list of tokens "In", "the", "morning,"... We can represent this as a graph with the tokens as nodes, the edges, however, are a bit trickier to define. In graphs there's an obvious notion of adjacency. We know that adjacent nodes in a graph are related the most (have similar weather, for instance), and if that holds, the graph neural network will work well. A naive attempt might be to add edges between adjacent words (for example an edge beween "the" and "morning"). However even in our example adjacent words aren't necessarily the ones related the most. The token "Then" isn't really related to the word "up.", neither to "I". It's actually related the most to the word "morning". There is another, possibly bigger issue. We saw that, if we have 10 layers, our neural network can only see 10 words away. Modern LLMs have context lengths up to 10 million (and the mainstream ones have around 100 thousand). There is no way to create a neural network with 100 thousand layers, it will break in ALL kinds of ways (parameter count and error accumulation, including exploding and vanishing gradients, being the main ones). So we need to modify our approach, but at least we've identified the issue: we don't have a good notion of adjacency.</p>
+
+      <p>So let's allow the model to make up its own notion of adjacency.</p>
+
+      <p>Neighbours of a model are represented using its adjacency matrix. When we are summing the neighbours of a node \(v\), we can just look at the row of the adjacency matrix that corresponds to \(v\) and the indices of the elements that are equal to \(1\) represent neighbours. So instead of</p>
+      \[
+      m_v = \sum_{u\in N(v)} V x_u,
+      \]
+      we can also write
+      \[
+      m_i = \sum_{j = 0}^{n-1} A_{i,j} V x_j
+      \]
+      <p>(where \(x_j) denotes the vector for the node with the index \(j\) and \(A_{i,j}\) the element of the adjacency matrix in the \(i\)-th row and \(j\)-th column). Our goal now changes slightly. Instead of searching for neighbours, we can just search for the matrix \(A\). There is no real reason to force the elements to be 0 or 1 either; sure, they have to be for the mathematical notion of an adjacency matrix, but if we have to search for a matrix, why not find a general one. A different justification would be that we're finding the weighted adjacency matrix of a complete graph (the higher the weight, the better the relation between two words). When are two words similar, how do we let the computer create the adjacency matrix?</p>
+
+      <p>In mathematics, dot product is often used when deciding how similar two vectors are. If they're similar (pointing in the same direction), their dot product will be large. If they're opposite, the dot product will be negative. And if the two vectors are completely unrelated (orthogonal), the dot product will be zero. What happens if we fill the matrix \(A\) with dot products of token embeddings - two tokens will have a similar embedding if they're describing similar things. So if we take the dot product of the token embedding of "hour" with "minute", we get a high value, but if we take the product of "seven" and "hour", the value will be close to 0. It seems we're heading in the right direction, as we're now able to fill the matrix with high values where meanings are similar, but that's not <emph>exactly</emph> what we want. For example in the sentence "I am on a seven hour flight.", the meaning of "seven" and "hour" is unrelated, but clearly "seven" refers to the word "hour", so our neural network should consider them highly connected.</p>
+
+      <p>We can solve this via a simple linear layer. Instead of passing in raw embeddings of the words, first multiply them by trainable parameters. We thus define two additional matrices \(Q\) and \(K\) (stands for query and key). If the word "hour", with the vector \(x\), is searching for "seven", with the vector \(y\), then we want \(Qx \cdot Ky\) to be high. As the matrices \(Q\) and \(K\) are trainable parameters, they will automatically set themselves so that the mechanism works. Let's collect all of this together and describe the attention layer - called this way, because we put extra attention (higher weight) to certain parts of the input.</p>
+
+      <p>Given vectors \(x_i\), we compute the products \(K x_i\), \(Q x_i\) and \(V x_i\). Then we find define the adjacency matrix \(A\) using \(A_{i,j} = Q x_i \cdot K x_j\). Then the output embedding after the attention part of the transformer is</p>
+      \[
+      y_i = \sum_{j = 0}^{n-1} (Q x_i \cdot K x_j) V x_j
+      \]
+      <p>Just like before, it's beneficial to divide the sum to prevent exploding gradients. Last time we divided by the degree of the vertex, this time we divide by the square root of the dimension of \(K\), which we denote \(d_k\). For a similar reason we apply the softmax function to it, which also prevents flattening of the probability distributions. That can be written more eloquently as </p>
+      \[
+      y = \text{softmax}\left(\frac{Qx(Kx)^T}{\sqrt{d_k}}\right)V x
+      \]
+      <p>To finish the transformer layer, we just pass our result of the attention through a linear layer and an activation function. This gives us a new representation of the token, just like we got a new representation of the word after one layer of a graph neural network. And just like before, we can iterate the process further - just put the output of the the transformer layer as input into the next one. Rather than write it out, let's add other features to it.</p>
+
+      <p>First one is treating the graph as a directed graph. We don't want words to reference words that are only said in the future. For example the word "seven" in the sentence "I am on a seven hour flight." shouldn't attend to the word "hour", because it's said after "seven". This allows for easy training of the model and the implementation is very simple: sum up to \(i\) instead of \(n\). The second one is the concept of "multi head attention". Rather than just having one instance of the attention matrix, make multiple copies of it. Then each transformer layer might have 3 pairs of \(K\), \(Q\) and \(V\) matrices. You'd compute the products completely independently and all of the matrices are independent learnable parameters. After you're done computing attention, just concatenate the results and pass them to a linear layer. It seems a bit hacky, but it works. Lastly, we can use residual layers and skip connections. This is simple, just create a copy of the inputs that skips the attention part and add them together to the result of the attention. Then you just normalize again (using layer normalization layers). This creates the decoder-only transformer usually seen in practice.</p>
+
+
+      <p>If you have any comments or questions, drop me a mail! I will be happy to discuss things further.</p>
+    </article>
+  </main>
+
+  <footer>
+    <p>© 2025 Tadej Petrič</p>
+  </footer>
+</body>
+
+</html>
