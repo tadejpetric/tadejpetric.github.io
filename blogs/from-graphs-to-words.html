@@ -70,12 +70,12 @@
           href="https://en.wikipedia.org/wiki/Long_short-term_memory">LSTM</a> before it). There's been a myriad of
         articles following that route already. We'll approach this differently and show how there's one natural neural
         network on graphs (a graph being a set of nodes and edges, not the curve in a coordinate system) and how the
-        transformer arises if one view natural language modelling.
+        transformer arises if one views natural language modelling through the lens of graphs.
       </p>
       <p>
-        This article has some light prerequisites. One should know the old multilayer perceptron neural networks work
+        This article has some light prerequisites. One should know how the old multilayer perceptron neural networks work
         (just a stack of linear layers and activation functions). Some light sense of linear algebra and graph theory
-        also wouldn't hurt, but not much beyond knowing what an adjacency matrix is is strictly required.
+        also wouldn't hurt, but not much beyond knowledge of adjacency matrices is strictly required.
       </p>
       <h3>Motivating problem</h3>
       <p>Every solution is best viewed through a specific motivating problem. We know we want to derive an architecture
@@ -94,11 +94,11 @@
         that soon enough, wind will be blowing at station B as well. So then we might put as inputs to the neural
         network the neighbouring stations as well, rather than only the one we're trying to make a forecast of. But then
         what about the neighbours of those newly added stations as well? They would help a bit less, sure, but they
-        might still be valuable, specially far into the future. Okay, one might think, let's just add ALL the stations
+        might still be valuable, especially far into the future. Okay, one might think, let's just add ALL the stations
         to our LSTM and then predict using that - we have the best information, so we'd expect the best results. That
         causes a different issue, however. The parameters of a neural network will blow up and the data required to
         train it will blow up. Additionally, now we lose a lot of the training samples, since before each weather
-        station could give us a new datasample but now we've collected them all into one massive sample, which loses us
+        station could give us a new data sample but now we've collected them all into one massive sample, which loses us
         most of the training data.</p>
 
       <p>The solution, for us, is to view the earth through the lens of graph theory. Each measurement station
@@ -140,13 +140,13 @@
       \[
       m_v = \sum_{u\in N(v)} V x_u
       \]
-      <p>Additionally, compute the representation of our current node \(v\). To distinguish it, we use the matrix \(V'\) this time, resulting in \(V'x_v\). Lastly, let \(\sigma\) bi our activation function. Then we can define output as</p>
+      <p>Additionally, compute the representation of our current node \(v\). To distinguish it, we use the matrix \(V'\) this time, resulting in \(V'x_v\). Lastly, let \(\sigma\) be our activation function. Then we can define output as</p>
       \[
       y_v = \sigma(V'x_v + m_v)
       \]
       <p>Now the vector \(y_v\) has information not only about itself, but also about its neighbours. </p>
       <h4>Attending to neighbours (deeply)</h4>
-      <p>We can iterate the above definitions to create a multi-layer graph operation. Initially, each node only encodes the data about itself. After one iteration, as we've seen in \(y_v\), the node encodes not only information about itself, but also its neighbours. When we iterate this further it will encoded also neighbours' neighbours at the second iteration and then the neighbours of neighbours' neighbrous on the third iteration and so on. To prevend exploding gradients, we modify the above definitions slightly, as well as use some notation that's more conducive to this iterative process.</p>
+      <p>We can iterate the above definitions to create a multi-layer graph operation. Initially, each node only encodes the data about itself. After one iteration, as we've seen in \(y_v\), the node encodes not only information about itself, but also its neighbours. When we iterate this further it will also encode also neighbours' neighbours at the second iteration and then the neighbours of neighbours' neighbours on the third iteration and so on. To prevent exploding gradients, we modify the above definitions slightly, as well as use some notation that's more conducive to this iterative process.</p>
 
       <p>With \(x_v^{(i)}\) we denote the <emph>embedding</emph> of the vertex \(v\) after \(i\) iterations. In the first step it's unchanged (\(x_v^{(0)}=x_v\)) and after one step it's as in the output of the previous chapter (\(x_v^{(1)} = y_v\)). Using \(V_i\) and \(Q_i\) we denote the learnable parameters and with \(d_v\) the degree of the vertex \(v\). Then we define the representation of neighbours as</p>
       \[
@@ -164,7 +164,7 @@
 
       <h3>Transformers</h3>
       <p>We're now equipped to see how the fabled transformer works. The architecture works on all kinds of modalities, but we'll initially stick to the original implementation, which used it in natural language processing tasks. We also won't implement the transformer in its full strength, instead we'll stick to the decoder-only (or encoder-only, they are similar) transformers (which are used in LLMs).</p>
-      <p>We take an arbitrary english sentence, for example "In the morning, I woke up. Then I went to work.". We tokenize it and, for simplicity, let's say the tokens are words. So we're left with a list of tokens "In", "the", "morning,"... We can represent this as a graph with the tokens as nodes, the edges, however, are a bit trickier to define. In graphs there's an obvious notion of adjacency. We know that adjacent nodes in a graph are related the most (have similar weather, for instance), and if that holds, the graph neural network will work well. A naive attempt might be to add edges between adjacent words (for example an edge beween "the" and "morning"). However even in our example adjacent words aren't necessarily the ones related the most. The token "Then" isn't really related to the word "up.", neither to "I". It's actually related the most to the word "morning". There is another, possibly bigger issue. We saw that, if we have 10 layers, our neural network can only see 10 words away. Modern LLMs have context lengths up to 10 million (and the mainstream ones have around 100 thousand). There is no way to create a neural network with 100 thousand layers, it will break in ALL kinds of ways (parameter count and error accumulation, including exploding and vanishing gradients, being the main ones). So we need to modify our approach, but at least we've identified the issue: we don't have a good notion of adjacency.</p>
+      <p>We take an arbitrary English sentence, for example "In the morning, I woke up. Then I went to work.". We tokenize it and, for simplicity, let's say the tokens are words. So we're left with a list of tokens "In", "the", "morning,"... We can represent this as a graph with the tokens as nodes, the edges, however, are a bit trickier to define. In graphs there's an obvious notion of adjacency. We know that adjacent nodes in a graph are related the most (have similar weather, for instance), and if that holds, the graph neural network will work well. A naive attempt might be to add edges between adjacent words (for example an edge between "the" and "morning"). However even in our example adjacent words aren't necessarily the ones related the most. The token "Then" isn't really related to the word "up.", neither to "I". It's actually related the most to the word "morning". There is another, possibly bigger issue. We saw that, if we have 10 layers, our neural network can only see 10 words away. Modern LLMs have context lengths up to 10 million (and the mainstream ones have around 100 thousand). There is no way to create a neural network with 100 thousand layers, it will break in ALL kinds of ways (parameter count and error accumulation, including exploding and vanishing gradients, being the main ones). So we need to modify our approach, but at least we've identified the issue: we don't have a good notion of adjacency.</p>
 
       <p>So let's allow the model to make up its own notion of adjacency.</p>
 
@@ -182,7 +182,7 @@
 
       <p>We can solve this via a simple linear layer. Instead of passing in raw embeddings of the words, first multiply them by trainable parameters. We thus define two additional matrices \(Q\) and \(K\) (stands for query and key). If the word "hour", with the vector \(x\), is searching for "seven", with the vector \(y\), then we want \(Qx \cdot Ky\) to be high. As the matrices \(Q\) and \(K\) are trainable parameters, they will automatically set themselves so that the mechanism works. Let's collect all of this together and describe the attention layer - called this way, because we put extra attention (higher weight) to certain parts of the input.</p>
 
-      <p>Given vectors \(x_i\), we compute the products \(K x_i\), \(Q x_i\) and \(V x_i\). Then we find define the adjacency matrix \(A\) using \(A_{i,j} = Q x_i \cdot K x_j\). Then the output embedding after the attention part of the transformer is</p>
+      <p>Given vectors \(x_i\), we compute the products \(K x_i\), \(Q x_i\) and \(V x_i\). Then we compute the adjacency matrix \(A\) using \(A_{i,j} = Q x_i \cdot K x_j\). Then the output embedding after the attention part of the transformer is</p>
       \[
       y_i = \sum_{j = 0}^{n-1} (Q x_i \cdot K x_j) V x_j
       \]
@@ -190,7 +190,7 @@
       \[
       y = \text{softmax}\left(\frac{Qx(Kx)^T}{\sqrt{d_k}}\right)V x
       \]
-      <p>To finish the transformer layer, we just pass our result of the attention through a linear layer and an activation function. This gives us a new representation of the token, just like we got a new representation of the word after one layer of a graph neural network. And just like before, we can iterate the process further - just put the output of the the transformer layer as input into the next one. Rather than write it out, let's add other features to it.</p>
+      <p>To finish the transformer layer, we just pass our result of the attention through a linear layer and an activation function. This gives us a new representation of the token, just like we got a new representation of the word after one layer of a graph neural network. And just like before, we can iterate the process further - just put the output of the transformer layer as input into the next one. Rather than write it out, let's add other features to it.</p>
 
       <p>First one is treating the graph as a directed graph. We don't want words to reference words that are only said in the future. For example the word "seven" in the sentence "I am on a seven hour flight." shouldn't attend to the word "hour", because it's said after "seven". This allows for easy training of the model and the implementation is very simple: sum up to \(i\) instead of \(n\). The second one is the concept of "multi head attention". Rather than just having one instance of the attention matrix, make multiple copies of it. Then each transformer layer might have 3 pairs of \(K\), \(Q\) and \(V\) matrices. You'd compute the products completely independently and all of the matrices are independent learnable parameters. After you're done computing attention, just concatenate the results and pass them to a linear layer. It seems a bit hacky, but it works. Lastly, we can use residual layers and skip connections. This is simple, just create a copy of the inputs that skips the attention part and add them together to the result of the attention. Then you just normalize again (using layer normalization layers). This creates the decoder-only transformer usually seen in practice.</p>
 
