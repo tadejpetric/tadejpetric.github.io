@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sequential Parallelism</title>
+    <meta name="description" content="How sequential programs can sometimes be execution in parallel.">
+
+    <!-- OpenGraph tags-->
+    <meta property="og:title" content="Sequential Parallelism" />
+    <meta property="og:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
+    <meta property="og:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
+    <meta property="og:image:width" content="769" />
+    <meta property="og:image:height" content="373" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tadejpetric.github.io/blogs/sequential-parallelism.html" />
+    <meta property="og:site_name" content="Tadej Petrič" />
+    <meta property="og:description" content="How sequential programs can sometimes be executed in parallel." />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Sequential Parallelism" />
+    <meta name="twitter:description" content="How sequential programs can sometimes be executed in parallel." />
+    <meta name="twitter:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
+    <meta name="twitter:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
+    <meta name="twitter:site" content="@tadejpetric1" />
+    <meta name="twitter:creator" content="@tadejpetric1" />
+
+
+
+    <link rel="stylesheet" href="../assets/css/styles.css" />
+    <link rel="stylesheet" href="../assets/css/blog_styles.css" />
+
+    <!-- MathJax for LaTeX support -->
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script"></script>
+
+    <!-- highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", (event) => {
+            hljs.highlightAll();
+        });
+    </script>
+</head>
+
+<body>
+    <header>
+        <h1>Tadej Petrič</h1>
+        <p>
+            <a href="mailto:tadej.petric1@gmail.com">tadej.petric1@gmail.com</a> |
+            <a href="https://www.linkedin.com/in/tadej-p-5b024987/">LinkedIn</a> |
+            <a href="https://github.com/tadejpetric">GitHub</a>
+        </p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="../index.html">Home</a></li>
+            <li><a href="../cv.html">CV</a></li>
+            <li><a href="../blog.html">All Blog Posts</a></li>
+            <li><a href="../cool-tidbits.html">Cool Tidbits</a></li>
+        </ul>
+    </nav>
+
+    <main class="blog-content">
+        <article>
+            <h2>Synchronous Parallelism (Sequel to <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>Sequential Parallelism</a>)</h2>
+            <p><em>Posted on January 31, 2025</em></p>
+            TODO: meta tags
+
+            <p>In the <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>previous article</a> we looked at how processors can sometimes execute things in parallel, even though we never asked them to. We're continuing our journey of parallelism, except that this time, the parallelism is intended. The concept we'll explore this time is a bit more well known (at least in my bubble), but not necessarily actually utilised. This concept is known as "Single instruction, multiple data" or SIMD for short.</p>
+            <p>Let's first give a simple motivation, similar to the last article, where we were wondering why some processors have an extremely large amount of registers. This time, we take a look at the size of the registers. There are three common datatypes in computer languages that dominate the usage across the board: 32-bit integers, 32-bit floating points and 8 bit integer types (which includes characters and boolean numbers). If you add 64-bit integers (including pointers) and 64-bit floats, as well as composed structures using these types (classes), you cover well over 99% of the types in use. My processor, an i5-13400F, however, has some registers that are 256 bits large. Some desktop processors, like the new AMD processors and Intel's Xeon line of processors extend those to 512 bits. The most extreme architecture I know is the <a href="https://www.nec.com/en/global/solutions/hpc/sx/architecture.html">NEC Vector Engine</a>, which has registers that are 16kb large! Why would that be useful if no datatypes in common use are actually that large?</p>
+            <p>As in the last part of this series, we'll be using assembly to see what is actually going on at the hardware level. If you need a refresher, look at the last part of the series. I'll be explaining any new instructions, however.</p>
+            <h3>Vectorisation</h3>
+            <!-- mention GPUs -->
+            <p>The registers in question are not the same as the general purpose registers one might use when adding two numbers together. They don't even come in the x86 architecture by default, they were only added later with extensions to the architecture. The first such extension was <a href="https://en.wikipedia.org/wiki/MMX_(instruction_set)">MMX</a>. These days it's hard to find a processor without MMX support as all mainstream x86-64 Intel and AMD processors support it. MMX comes with additional 64-bit registers. The catch, however, is that instructions don't apply to the entire register, but only part of it. Performing addition on such a register doesn't add two 64-bit numbers together, instead it might compute the sum of the first 32 bits and the last 32 bits separately. This is all best explained using examples, which coincidentally also solves the goal of the blog post - getting familiar with the SIMD extensions.</p>
+            <h3>MMX</h3>
+        </article>
+    </main>
+
+    <footer>
+        <p>© 2025 Tadej Petrič</p>
+    </footer>
+</body>
+
+</html>

@@ -8,7 +8,7 @@
   <meta name="description" content="How to derive the transformer architecture from graph neural networks as well as build up a graph neural network from scratch.">
 
   <!-- OpenGraph tags-->
-  <meta property="og:title" content="From graphs to words" />
+  <meta property="og:title" content="From Graphs to Words" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://tadejpetric.github.io/blogs/sequential-parallelism.html" />
   <meta property="og:site_name" content="Tadej Petrič" />
@@ -16,7 +16,7 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="From graphs to words" />
+  <meta name="twitter:title" content="From Graphs to Words" />
   <meta name="twitter:description" content="How to derive the transformer architecture from graph neural networks as well as build up a graph neural network from scratch." />
   <meta name="twitter:site" content="@tadejpetric1" />
   <meta name="twitter:creator" content="@tadejpetric1" />
@@ -26,16 +26,6 @@
 
   <!-- MathJax for LaTeX support -->
   <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script"></script>
-
-  <!-- highlight.js for syntax highlighting -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/x86asm.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", (event) => {
-      hljs.highlightAll();
-    });
-  </script>
 </head>
 
 <body>
@@ -86,10 +76,10 @@
         for this (although we will simplify a lot of the details).</p>
 
       <p>Suppose we have weather measurement stations all across the world. This allows us to consider any individual
-        network station and try to predict its future state. For example, one might train a LSTM network on the
+        network station and try to predict its future state. For example, one might train an LSTM network on the
         temperatures recorded by a station; then given the data of the current week, it would try to predict the data
         for the next week. We also have plenty of data to train the model on, since we can use each station's weather
-        history as a separate datapoint. The model however underperforms, as the weather stations aren't all
+        history as a separate datapoint. The model, however, underperforms, as the weather stations aren't all
         independent. If there's wind blowing at station A in the direction of the station B, one might naturally expect
         that soon enough, wind will be blowing at station B as well. So then we might put as inputs to the neural
         network the neighbouring stations as well, rather than only the one we're trying to make a forecast of. But then
@@ -101,7 +91,7 @@
         station could give us a new data sample but now we've collected them all into one massive sample, which loses us
         most of the training data.</p>
 
-      <p>The solution, for us, is to view the earth through the lens of graph theory. Each measurement station
+      <p>The solution, for us, is to view the Earth through the lens of graph theory. Each measurement station
         represents a node in the graph. Neighbouring stations will be connected. With some clever data regularization we
         can simplify the model for ourselves and just triangulate the entire globe. GraphCast thus defined approximately
         one million such equidistant vertices.</p>
@@ -134,7 +124,7 @@
       <p>This way we managed to add information about the node's position. Let's now try to incorporate the information from neighbouring nodes as well. Since we embedded positional information directly into the node, if we manage to incorporate neighbour's data, we'll also incorporate their position for free! So while graphs don't have a defined orientation (e.g. we don't know if a node is to the north or the south), this mechanism allows us not to worry about it. If we just combine all the data from neighbours in <emph>any</emph> order, the neural network has all the required data to understand which neighbour is in which direction. For the rest of the blog post, when I say "node's data", I mean "node's data combined with positional information" (but we only add the information in the very beginning. When we extend the process to multiple layers, we are not adding more positional information after every layer).</p>
 
       <h4>Attending to neighbours</h4>
-      <p>We saw that one simple way to add information to a node is via addition - we could add information about a node's position by just adding the position vector to the node's data. Now we do something similar to add the information from neighbouring nodes, we simply add them to our node. Well - a little bit more complex. If we add nodes together, the model will struggle to differentiate what came from the current node and what from the neighbours node. It's easy to fix this by adding just to pass neighbour's data through simple linear layer before combining. Let's write this out formally.</p>
+      <p>We saw that one simple way to add information to a node is via addition - we could add information about a node's position by just adding the position vector to the node's data. Now we do something similar to add the information from neighbouring nodes; we simply add them to our node. Well - a little bit more complex. If we add nodes together, the model will struggle to differentiate what came from the current node and what from the neighbours node. It's easy to fix this by adding just to pass neighbour's data through simple linear layer before combining. Let's write this out formally.</p>
 
       <p>We denote \(x_v\) the vector for the node \(v\). We want to produce an output vector \(y_v\) for that same node. We have matrices \(V'\) and \(V\), that act as trainable parameters of the model (linear layers). We iterate through the neighbours of \(v\) and compute the <emph>representations</emph> of the neighbouring vectors; if \(u\) is a neighbour, \(V x_u\) is the representation of that neighbour. To get the representation of all neighbours simply sum them up.</p>
       \[
