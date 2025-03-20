@@ -67,20 +67,340 @@
 
     <main class="blog-content">
         <article>
-            <h2>Synchronous Parallelism (Sequel to <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>Sequential Parallelism</a>)</h2>
+            <h2>Synchronous Parallelism (Sequel to <a
+                    href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>Sequential Parallelism</a>)
+            </h2>
             <p><em>Posted on January 31, 2025</em></p>
             TODO: meta tags
 
-            <p>In the <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>previous article</a> we looked at how processors can sometimes execute things in parallel, even though we never asked them to. We're continuing our journey of parallelism, except that this time, the parallelism is intended. The concept we'll explore this time is a bit more well known (at least in my bubble), but not necessarily actually utilised. This concept is known as "Single instruction, multiple data" or SIMD for short.</p>
-            <p>Let's first give a simple motivation, similar to the last article, where we were wondering why some processors have an extremely large amount of registers. This time, we take a look at the size of the registers. There are three common datatypes in computer languages that dominate the usage across the board: 32-bit integers, 32-bit floating points and 8 bit integer types (which includes characters and boolean numbers). If you add 64-bit integers (including pointers) and 64-bit floats, as well as composed structures using these types (classes), you cover well over 99% of the types in use. My processor, an i5-13400F, however, has some registers that are 256 bits large. Some desktop processors, like the new AMD processors and Intel's Xeon line of processors extend those to 512 bits. The most extreme architecture I know is the <a href="https://www.nec.com/en/global/solutions/hpc/sx/architecture.html">NEC Vector Engine</a>, which has registers that are 16kb large! Why would that be useful if no datatypes in common use are actually that large?</p>
-            <p>As in the last part of this series, we'll be using assembly to see what is actually going on at the hardware level. If you need a refresher, look at the last part of the series. I'll be explaining any new instructions, however.</p>
-            <h3>Vectorisation</h3>
-            <!-- mention GPUs -->
-            <p>The registers in question are not the same as the general purpose registers one might use when adding two numbers together. They don't even come in the x86 architecture by default, they were only added later with extensions to the architecture. The first such extension was <a href="https://en.wikipedia.org/wiki/MMX_(instruction_set)">MMX</a>. These days it's hard to find a processor without MMX support as all mainstream x86-64 Intel and AMD processors support it. MMX comes with additional 64-bit registers. The catch, however, is that instructions don't apply to the entire register, but only part of it. Performing addition on such a register doesn't add two 64-bit numbers together, instead it might compute the sum of the first 32 bits and the last 32 bits separately. This is all best explained using examples, which coincidentally also solves the goal of the blog post - getting familiar with the SIMD extensions.</p>
-            <h3>MMX</h3>
+            <p>In the <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>previous article</a> we
+                looked at how processors can sometimes execute things in parallel, even though we never asked them to.
+                We're continuing our journey of parallelism, except that this time, the parallelism is intended. The
+                concept we'll explore this time is a bit more well known (at least in my bubble), but not necessarily
+                actually utilised. This concept is known as "Single instruction, multiple data" or SIMD for short.</p>
+            <p>Let's first give a simple motivation, similar to the last article, where we were wondering why some
+                processors have an extremely large amount of registers. This time, we take a look at the size of the
+                registers. There are three common datatypes in computer languages that dominate the usage across the
+                board: 32-bit integers, 32-bit floating points and 8 bit integer types (which includes characters and
+                boolean numbers). If you add 64-bit integers (including pointers) and 64-bit floats, as well as composed
+                structures using these types (classes), you cover well over 99% of the types in use. My processor, an
+                i5-13400F, however, has some registers that are 256 bits large. Some desktop processors, like the new
+                AMD processors and Intel's Xeon line of processors extend those to 512 bits. The most extreme
+                architecture I know is the <a
+                    href="https://www.nec.com/en/global/solutions/hpc/sx/architecture.html">NEC Vector Engine</a>, which
+                has registers that are 16kb large! Why would that be useful if no datatypes in common use are actually
+                that large?</p>
+            <p>As in the last part of this series, we'll be using assembly to be as close to the hardware as possible.
+                If you need a refresher, look at the last part of the series. I'll be explaining any new instructions,
+                however.</p>
+            <h3>Native vectorisation</h3>
+            While x86 has many registers dedicated for SIMD, we will first look at how we can use the base operations
+            within x86 to achieve improvements. Without any extensions at all. We will first consider an example of
+            shifting values in an array and after that mention possible applications, including the problem of summing
+            numbers from the previous post.
+
+            <h4>Problem statement</h4>
+            <p>Frequently in programming, we have to shift all values in an array. A simple example are insertions - if
+                we want to insert an element at the index \(i\), we have to first shift all elements of the array from
+                \(i\) onwards to create space for the newly inserted element. If insertions in an array were free,
+                insertion sort would have the complexity \(O(n \log(n))\) rather than the \(O(n)\) it has in reality. If
+                one wishes to implement a queue via a stack, are also required to shift the array for every pop
+                operation. Both of the algorithms are frequently used today (for small input sizes), so let's try to
+                optimise it.</p>
+
+            <p>We are given an array of values and we wish to move every index at location \(i\) to location \(i+1\). We
+                cycle the last element of the array to the front. For example, given an array</p>
+            <pre>0, 1, 2, 3, 4, 5</pre>
+            <p>The output after one shift will be</p>
+            <pre>5, 0, 1, 2, 3, 4.</pre>
+            <p>Importantly, values of the array are one byte large and the size of the array is such that we never end up with accidental out of bounds errors (it has to be divisible by a high enough power of two).</p>
+            <details>
+                <summary>Click to see the benchmarking code.</summary>
+                <p>We define an array <code class="language-x86asm">array</code> with 500 million elements, each of size
+                    one byte. We initialise it with some garbage values. We then call the function <code
+                        class="language-x86asm">shift_array</code> ten times.</p>
+                <pre><code class="language-x86asm">; code that shifts an array 1 byte to the right
+; This is cyclical, ie. the last byte becomes the first
+GLOBAL main
+%define array_len 500_000_000
+
+SECTION .bss
+    array resd array_len
+
+SECTION .text
+
+set_array:
+    xor eax, eax ; array index
+
+    startsetloop:
+        cmp eax, array_len ; if eax >= array_len, go to endsetloop
+        jge endsetloop
+        mov [array + 4*eax], eax ; array[eax] = eax
+        inc eax ; eax++
+        jmp startsetloop
+    endsetloop:
+
+    ret
+
+shift_array:
+    ; Procedure that shifts the array
+    ret
+
+main:
+    call set_array
+    xor eax, eax ; eax = 0
+
+    startmainloop: ; call shift_array 10 times
+        cmp rax, 10
+        jge endmainloop
+        push rax
+        call shift_array
+        pop rax
+        inc rax
+        jmp startmainloop
+    endmainloop:
+    
+    xor eax, eax
+    ret
+
+</code></pre>
+            </details>
+            <p>The empty runtime on my computer (an i5-13400F), without any shifts (just starting up the program and
+                initialising the array) is 330ms. Anything over that is the runtime taken by our shift code.</p>
+            <h4>Naive approach</h4>
+            <p>We first try to solve the problem naively. We have two temporary registers, <code
+                    class="language-x86asm">al</code> and <code class="language-x86asm">bl</code>. We iterate over the
+                entire array repeating the following: store the value of the current element in <code
+                    class="language-x86asm">bl</code>, overwrite the element with <code
+                    class="language-x86asm">al</code> (representing the previous element) and lastly assign <code
+                    class="language-x86asm">al</code> to <code class="language-x86asm">bl</code>. We are left with the
+                following code:</p>
+            <pre><code class="language-x86asm">shift_array:
+    xor eax, eax ; previous value carrier
+    xor ecx, ecx ; array index
+
+    startshiftloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endshiftloop
+        jge endshiftloop
+        mov bl, [array + rcx]  ; \
+        mov [array + rcx], al  ;  - swap(al, array[rcx])
+        mov al, bl             ; /
+        inc rcx ; rcx++
+        jmp startshiftloop
+    endshiftloop:
+
+    mov [array], al
+    ret</code>
+            <p>The code takes 1.595s on average, so that will be our baseline.</p>
+            <details>
+                <summary>Tangent 1: swapping natively is slow.</summary>
+                In x86 there is actually an instruction that swaps two elements. We did not have to use a second intermediate value for it. The code above could be rewritten as:
+                <pre><code class="language-x86asm">shift_array:
+    xor eax, eax ; previous value carrier
+    xor ecx, ecx ; array index
+
+    startshiftloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endshiftloop
+        jge endshiftloop
+        xchg al, [array + rcx] ; swap(al, array[rcx])
+        inc rcx ; rcx++
+        jmp startshiftloop
+    endshiftloop:
+
+    mov [array], al
+    ret</code>
+                <p>This code ends up being over ten times <emph>slower</emph> than our naive approach. This is mostly to do with <code class="language-x86asm">xchg</code> being an atomic operation (which we might look at in the last chapter of the blog series) and probably a bit due to operation dependency (which we looked at last time). It's not important for this post, but it did surprise me just how much slower it is: the runtime using the above code takes 19.136s!</p> 
+            </details>
+            <details>
+                <summary>Tangent 2: A clever approach</summary>
+                <p>There is another approach to the program. This time, we are iterating <emph>backwards</emph>. We only have to move each element one byte forward, directly overwriting any elements at that position. This way we don't need a temporary variable for swapping. We still, however, require a variable for moving memory to memory, as x86 does not support memory to memory moves - one operand must be a register.</p>
+                <pre><code class="language-x86asm">shift_array:
+    mov rcx, array_len ; array index
+    dec rcx
+    mov al, [array + rcx] ; Store the last value for the cyclical shift
+
+    startshiftloop:
+        cmp rcx, 0 ; if rcx <= 0, go to endshiftloop
+        je endshiftloop
+        ; mov byte [array + rcx], byte [array + rcx - 1] 
+        ; we can't do direct memory to memory, so intermediate bl is needed
+        mov bl, byte [array + rcx - 1]
+        mov byte [array + rcx], bl
+        dec rcx ; rcx--
+        jmp startshiftloop
+    endshiftloop:
+
+    mov [array], al
+    ret</code>
+            <p>This code turns out to be very slightly faster, clocking out at an average of 1.435s</p>
+            </details>
+            <h4>Vectorisation</h4>
+            <p>Now we've arrived at the crux of the post: vectorisation. Rather than just moving one element at a time, we can move several elements at once. We've always been accessing one value at a time. But our processor has 64 bit registers, meaning we could read and write 8 elements at once! To move the bytes forward, we simply bit shift them for 8 bits - since this cuts off one byte, we have to store it in a temporary register before the bit shift (and add it back in the next iteration). Since we only have to do one memory read / write per 8 bytes, the resulting code ends up much faster.</p>
+            <pre><code class="language-x86asm">shift_array:
+    xor eax, eax ; previous value carry
+    xor ecx, ecx ; array index
+
+    startshiftloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endshiftloop
+        jge endshiftloop
+        mov rbx, [array + rcx] ; we read 8 bytes (rbx instead of bl)
+        mov rdx, rbx 
+
+        shl rbx, 8 ; shift the values one byte
+        or rbx, rax ; add left most bits from the previous iteration
+
+        shr rdx, 56  ; get the left most bits
+        mov rax, rdx ; store them into rax
+
+        mov [array + rcx], rbx
+
+        add rcx, 8 ; rcx += 8, we are moving 8 bytes forward
+        jmp startshiftloop
+    endshiftloop:
+
+    mov [array], al
+    ret </code>
+            <p>This code has an average runtime of 0.701s. Accounting for runtime of the initialisation, this is roughly a 4x speedup! We achieved that by using a single instruction (64-bit read and 64-bit bit shift) on multiple data (8 bytes, each one element of the array): SIMD.</p>
+
+            <details>
+                <summary>Tangent 3: A clever approach, part 2</summary>
+                <pre><code class="language-x86asm">shift_array:
+    mov rcx, array_len ; array index
+    dec rcx
+    mov al, [array + rcx] ; Store the last value for the cyclical shift
+    sub rcx, 7
+
+    startshiftloop:
+        cmp rcx, 0 ; if rcx <= 0, go to endshiftloop
+        je endshiftloop
+        mov rbx, [array + rcx - 1]
+        mov [array + rcx], rbx ; move the 8 bytes one byte forward
+        sub rcx, 8 ; rcx -= 8
+        jmp startshiftloop
+    endshiftloop:
+
+    mov [array], al
+    ret</code>
+                <p>If we attempt to use the same clever approach with the SIMD method, our program runtime ends up at 0.675s.</p>
+            </details>
+
+            <h4>Other examples</h4>
+            <p>Similar approaches can also be used elsewhere. For example, if we want to increment each element of the array we can either iterate byte by byte and increment each one or we could iterate by 8 bytes and add <code class="language-x86asm">0x01010101_01010101</code> to the entire pack of 8. Of course, this only works if there are no overflows (but given that signed overflow is undefined behaviour in many languages, C included, this isn't too outlandish). The overflow restriction, however, stops us from solving the previous blog's topic, the sum of an array, with this approach (at least in an efficient way).</p>
+            <p>Another trivial example are the binary operations - these are already vectorised by design, bitwise and applies the <code class="language-x86asm">and</code> operation to every bit in the register.</p>
+            <p>An interesting example can be found using the multiplication operation. If we multiply a byte with the number <code class="language-x86asm">0x0101</code>, we duplicate that byte.</p>
+            <p>There are many other examples of such operations (I recommend the book Hacker's Delight for further reading), but we move onto the part of the architecture that is responsible for SIMD by design.</p>
+            <h3>Vector registers</h3>
+            <p>Eventually, the CPU designers realised such operations are useful and extended the x86 architecture with new registers and operations designed for SIMD. The first such extension was <a href="https://en.wikipedia.org/wiki/MMX_(instruction_set)">MMX</a>. These days it's hard to find a processor without MMX support as all mainstream x86-64 Intel and AMD processors support it. MMX comes with additional 64-bit registers. The catch, however, is that instructions don't apply to the entire register, but only part of it. Performing addition on such a register doesn't add two 64-bit numbers together, instead it might compute the sum of the first 32 bits and the last 32 bits separately.</p>
+            <h4>MMX</h4>
+            <p>Instructions offered in the MMX set are pretty basic. An MMX processor has 8 64-bit registers. There are instructions operating on these registers, as for the standard x86 set. The instructions operate on multiple data stored inside the register; when we do addition of two MMX registers, it adds the constituents independently (as if we performed two independent additions using two independent pairs of 32-bit general purpose registers. Or four pairs of 16-bit or eight pairs of 8-bit registers). Multiple values are "packed" inside the register. There are the following instructions available in the base MMX set
+                <ul>
+                    <li>Move data in and out of registers</li>
+                    <li>Pack data together (e.g. if we have two registers with 2 32-bit integers each, we combine them into one register with 4 16-bit integers)</li>
+                    <li>Apply arithmetic operations with overflow</li>
+                    <li>Apply arithmetic operations with saturation</li>
+                    <li>Apply logical operations</li>
+                    <li>Apply bitwise operations and bit shifts</li>
+                </ul>
+            </p>
+
+            <p>None of these instructions really help us with the array shift, so we return back to the sum of array from the previous blog post. Our goal is to compute the sum of the array and store it in a 32bit value. We don't mind overflows, we are only computing the sum modulo \(2^32\).</p>
+
+            <details>
+                <summary>Benchmark code</summary>
+                <p>The code is virtually identical to the one for bit shifting, as well as identical to the one from the previous blog post. I am sharing it regardless for completeness.</p>
+<pre><code class="language-x86asm">GLOBAL main
+%define array_len 500_000_000
+
+SECTION .bss
+    array resd array_len
+
+SECTION .text
+
+set_array:
+    xor eax, eax ; array index
+
+    startsetloop:
+        cmp eax, array_len ; if eax >= array_len, go to endsetloop
+        jge endsetloop
+        mov [array + 4*eax], eax ; array[eax] = eax
+        inc eax ; eax++
+        jmp startsetloop
+    endsetloop:
+
+    ret
+
+sum_array:
+    ; Procedure that sums the array
+    ret
+
+main:
+    call set_array
+    xor eax, eax ; eax = 0
+
+    startmainloop: ; call sum_array 10 times
+        cmp rax, 10
+        jge endmainloop
+        push rax
+        call sum_array
+        pop rax
+        inc rax
+        jmp startmainloop
+    endmainloop:
+    
+    xor eax, eax
+    ret</code>
+            </details>
+
+            <p>This time we solve it using MMX registers. We first write a toy program to introduce the registers and operations, then quickly write the code for summing the array.</p>
+
+            <p>First, we have to mention that the MMX registers are actually shared with the floating point registers. This has no impact on us, as we are not using any floating point numbers, but do not mix MMX code and x87 floating point code. That's also the reason we have to use the instruction <code class="language-x86asm">emms</code> after finishing with MMX instructions, it exits the MMX mode and clears the slate. We address the registers using <code class="language-x86asm">mm0, ...m mm7</code>. Unlike when using floating point operations, here they are addressible without the use of a stack. They also have their own operations. For instance, instead of <code class="language-x86asm">mov</code> we have to use <code class="language-x86asm">movq</code>, instead of <code class="language-x86asm">add</code> we use <code class="language-x86asm">paddd</code> and so on. Let's look at a code sample.</p>
+<pre><code class="language-x86asm">GLOBAL main
+EXTERN printf
+
+SECTION .data
+    value dq 0x0000000400000002  ; 64-bit value (e.g., two 32-bit values)
+    printmsg: db "%d", 0
+SECTION .text
+
+main:
+    mov eax, 1
+    mov ebx, 6
+    movd mm0, eax ; mm0 has 0x1
+    movd mm1, ebx ; mm1 has 0x6
+    
+    xor eax, eax ; clear data. Not needed
+    xor ebx, ebx ; Just to demonstrate we are using mmx only
+
+    packssdw mm0, mm1 ; (1) mm0 has 0x0000000100000006
+
+    movq mm1, [value] ; mm1 has 0x0000000400000002
+
+    paddd mm0, mm1 ; (2) mm0 has 0x0000000500000008
+
+    movd eax, mm0 ; eax has 0x8
+    psrlq mm0, 32 ; (3) bitshift the high 32 bits into the low 32 bits
+    movd ebx, mm0 ; ebx has 0x5
+
+    emms
+    
+    add eax, ebx ; eax has 0xC
+
+    mov rdi, printmsg
+    mov esi, eax
+    xor eax, eax
+    call printf
+
+    xor eax, eax
+    ret</code></pre>
+
+    <p>Some parts of the code are pretty self explanatory. We initialise <code class="language-x86asm">[value]</code> with a 64-bit value that we see as two 32-bit values. We can move data into the lowest part of a MMX register using <code class="language-x86asm">movd</code> (d stands for doubleword, 32 bits; q would stand for quadword or 64 bits). Then at (1) we pack two MMX registers into one. The mnemonic <code class="language-x86asm">packssdw</code> stands for <bold>pack</bold>, using <bold>S</bold>igned <bold>S</bold>aturation, 4 <bold>D</bold>oublewords (two from MM0, two from MM1) into 4 <bold>W</bold>ords. So it casts both 32 bit components of MMX registers into two 16 bit components (and, if they are too large to fit, saturates them by setting them to the highest 16 bit value), then concatenates them to the (also converted and saturated) 16 bit components of the other MMX register.</p>
+
+    <p>With <code class="language-x86asm">paddd</code> at (2) we add both doubleword components independently. If we wanted to add 8 separate byte-large components, we would use <code class="language-x86asm">paddb</code>. Lastly, we apply bitshift to the entire quadword MMX register, to move the highest 32 bits (representing the other integer) into the low 32 bits, that are easily extracted into the general purpose registers. The code outputs 13, as desired.</p>
+    
+    <p>We now write the code leveraging MMX for the sum of an array.</p>
         </article>
     </main>
-
+<!-- mention GPUs -->
     <footer>
         <p>© 2025 Tadej Petrič</p>
     </footer>
