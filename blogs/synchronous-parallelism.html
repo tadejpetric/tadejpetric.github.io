@@ -106,7 +106,7 @@
                 insertion sort would have the complexity \(O(n \log(n))\) rather than the \(O(n^2)\) it has in reality. If
                 one wishes to implement a queue via a stack, they are also required to shift the array for every pop
                 operation. Both algorithms are still frequently used today, especially for small input sizes, so let's
-                see how we can optimize this operation..</p>
+                see how we can optimize this operation.</p>
 
             <p>We are given an array of values and we wish to move every index at location \(i\) to location \(i+1\). We
                 cycle the last element of the array to the front. For example, given an array</p>
@@ -225,7 +225,7 @@ main:
                 <p>There is another approach to the program. This time, we iterate <em>backwards</em> through the array.
                     We only have to move each element one byte forward, directly overwriting any elements at that
                     position. This way we don't need a temporary variable for swapping. However, we still need a
-                    temporary register since x86 doesn't support memory-to-memory moves - one operand must be a register
+                    temporary register since x86 doesn't support memory-to-memory moves - one operand must be a register.
                 </p>
                 <pre><code class="language-x86asm">shift_array:
     mov rcx, array_len ; array index
@@ -245,7 +245,7 @@ main:
 
     mov [array], al
     ret</code></pre>
-                <p>This code turns out to be marginally faster, averaging 1.435s</p>
+                <p>This code turns out to be marginally faster, averaging 1.435s.</p>
             </details>
             <h4>Vectorisation</h4>
             <p>Now we've arrived at the crux of the post: vectorisation. Rather than just moving one element at a time,
@@ -280,7 +280,7 @@ main:
     ret </code></pre>
             <p>This code has an average runtime of 0.701s. Accounting for runtime of the initialisation, this is roughly
                 a 4x speedup! We achieved this speedup by using a single instruction (64-bit read and shift) to operate
-                on multiple pieces of data (8 bytes — each one an array element). That's SIMD in action</p>
+                on multiple pieces of data (8 bytes — each one an array element). That's SIMD in action.</p>
 
             <details>
                 <summary>Tangent 3: A clever approach, part 2</summary>
@@ -655,7 +655,7 @@ andn ecx, ebx, eax
                     (increment)
                     instruction. While the <code class="language-x86asm">add eax, 1</code> does the full update of the
                     condition flags, <code class="language-x86asm">inc eax</code> only does a partial update which can
-                    cause some subtle stalls due to false dependencies and slow the code down. This behavior was largely mitigated after the Pentium 4 era, and on modern CPUs, there's usually no measurable difference between the two</p>
+                    cause some subtle stalls due to false dependencies and slow the code down. This behavior was largely mitigated after the Pentium 4 era, and on modern CPUs, there's usually no measurable difference between the two.</p>
             </details>
 
             <p>Let's move on to the code. This time we extract the data from the AVX registers a bit differently than before.
