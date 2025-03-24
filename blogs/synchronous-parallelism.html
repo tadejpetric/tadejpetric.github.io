@@ -4,26 +4,26 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sequential Parallelism</title>
-    <meta name="description" content="How sequential programs can sometimes be execution in parallel.">
+    <title>Introduction to SIMD: Sequential Parallelism</title>
+    <meta name="description" content="How certain x86 instruction execute multiple operations in parallel.">
 
     <!-- OpenGraph tags-->
-    <meta property="og:title" content="Sequential Parallelism" />
-    <meta property="og:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
-    <meta property="og:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
-    <meta property="og:image:width" content="769" />
-    <meta property="og:image:height" content="373" />
+    <meta property="og:title" content="Introduction to SIMD: Sequential Parallelism" />
+    <meta property="og:image" content="https://tadejpetric.github.io/blogs/media/synchronous-parallelism-thumb.png" />
+    <meta property="og:image:alt" content="x86-64 program that uses SIMD." />
+    <meta property="og:image:width" content="690" />
+    <meta property="og:image:height" content="314" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://tadejpetric.github.io/blogs/sequential-parallelism.html" />
+    <meta property="og:url" content="https://tadejpetric.github.io/blogs/synchronous-parallelism.html" />
     <meta property="og:site_name" content="Tadej Petrič" />
-    <meta property="og:description" content="How sequential programs can sometimes be executed in parallel." />
+    <meta property="og:description" content="How certain x86 instruction execute multiple operations in parallel." />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Sequential Parallelism" />
-    <meta name="twitter:description" content="How sequential programs can sometimes be executed in parallel." />
+    <meta name="twitter:title" content="Introduction to SIMD: Sequential Parallelism" />
+    <meta name="twitter:description" content="How certain x86 instruction execute multiple operations in parallel." />
     <meta name="twitter:image" content="https://tadejpetric.github.io/blogs/media/sequential-parallelism-thumb.png" />
-    <meta name="twitter:image:alt" content="x86-64 program that runs in one thread but is executed in parallel." />
+    <meta name="twitter:image:alt" content="x86-64 program that uses SIMD." />
     <meta name="twitter:site" content="@tadejpetric1" />
     <meta name="twitter:creator" content="@tadejpetric1" />
 
@@ -67,11 +67,10 @@
 
     <main class="blog-content">
         <article>
-            <h2>Synchronous Parallelism (Sequel to <a
+            <h2>Introduction to SIMD: Synchronous Parallelism (Sequel to <a
                     href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>Sequential Parallelism</a>)
             </h2>
-            <p><em>Posted on January 31, 2025</em></p>
-            TODO: meta tags
+            <p><em>Posted on March 24, 2025</em></p>
 
             <p>In the <a href=https://tadejpetric.github.io/blogs/sequential-parallelism.html>previous article</a> we
                 looked at how processors can sometimes execute things in parallel, even though we never asked them to.
@@ -113,7 +112,8 @@
             <pre>0, 1, 2, 3, 4, 5</pre>
             <p>The output after one shift will be</p>
             <pre>5, 0, 1, 2, 3, 4.</pre>
-            <p>Importantly, values of the array are one byte large and the size of the array is such that we never end up with accidental out of bounds errors (it has to be divisible by a high enough power of two).</p>
+            <p>Importantly, values of the array are one byte large and the size of the array is such that we never end
+                up with accidental out of bounds errors (it has to be divisible by a high enough power of two).</p>
             <details>
                 <summary>Click to see the benchmarking code.</summary>
                 <p>We define an array <code class="language-x86asm">array</code> with 500 million elements, each of size
@@ -285,7 +285,7 @@ main:
             </details>
 
             <h4>Other examples</h4>
-            <p>Similar approaches can also be used elsewhere. For example, if we want to increment each element of the array we can either iterate byte by byte and increment each one or we could iterate by 8 bytes and add <code class="language-x86asm">0x01010101_01010101</code> to the entire pack of 8. Of course, this only works if there are no overflows (but given that signed overflow is undefined behaviour in many languages, C included, this isn't too outlandish). The overflow restriction, however, stops us from solving the previous blog's topic, the sum of an array, with this approach (at least in an efficient way).</p>
+            <p>Similar approaches can also be used elsewhere. For example, if we want to increment each element of the array we can either iterate byte by byte and increment each one or we could iterate by 8 bytes and add <code class="language-x86asm">0x01010101_01010101</code> to the entire pack of 8. Of course, this only works if there are no overflows (but given that signed overflow is undefined behaviour in many languages, C included, this isn't too outlandish). The overflow restriction, however, stops us from solving the previous blog's topic, the sum of an array, with this approach (at least in an efficient way). We could still attempt to reduce the number of memory accesses by reading 64 bits from memory, rather than 32 bits, but we can only add 32 bits at once in one register (and due to caching, this will not improve the results meaningfully, by my measurements it comes at around 1% improvement over the naive option).</p>
             <p>Another trivial example are the binary operations - these are already vectorised by design, bitwise and applies the <code class="language-x86asm">and</code> operation to every bit in the register.</p>
             <p>An interesting example can be found using the multiplication operation. If we multiply a byte with the number <code class="language-x86asm">0x0101</code>, we duplicate that byte.</p>
             <p>There are many other examples of such operations (I recommend the book Hacker's Delight for further reading), but we move onto the part of the architecture that is responsible for SIMD by design.</p>
@@ -312,6 +312,7 @@ main:
 %define array_len 500_000_000
 
 SECTION .bss
+    align 16
     array resd array_len
 
 SECTION .text
@@ -351,10 +352,42 @@ main:
     ret</code>
             </details>
 
-            <p>This time we solve it using MMX registers. We first write a toy program to introduce the registers and operations, then quickly write the code for summing the array.</p>
+            <p>The initialisation of the array takes roughly 300ms as before. The naive approach takes 1.669s on average</p>
+            <pre><code class="language-x86asm">sum_array:
+    xor eax, eax ; partial sum carrier
+    xor ecx, ecx ; array index
 
-            <p>First, we have to mention that the MMX registers are actually shared with the floating point registers. This has no impact on us, as we are not using any floating point numbers, but do not mix MMX code and x87 floating point code. That's also the reason we have to use the instruction <code class="language-x86asm">emms</code> after finishing with MMX instructions, it exits the MMX mode and clears the slate. We address the registers using <code class="language-x86asm">mm0, ...m mm7</code>. Unlike when using floating point operations, here they are addressible without the use of a stack. They also have their own operations. For instance, instead of <code class="language-x86asm">mov</code> we have to use <code class="language-x86asm">movq</code>, instead of <code class="language-x86asm">add</code> we use <code class="language-x86asm">paddd</code> and so on. Let's look at a code sample.</p>
-<pre><code class="language-x86asm">GLOBAL main
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        add eax, [array + 4*rcx] ; eax += array[rcx]
+        inc rcx ; rcx++
+        jmp startsumloop
+    endsumloop:
+
+
+    mov rdi, helloMsg
+    mov esi, eax
+    xor eax, eax
+    call printf
+
+    ret
+</code></pre>
+
+            <p>This time we solve it using MMX registers. We first write a toy program to introduce the registers and
+                operations, then quickly write the code for summing the array.</p>
+
+            <p>First, we have to mention that the MMX registers are actually shared with the floating point registers.
+                This has no impact on us, as we are not using any floating point numbers, but do not mix MMX code and
+                x87 floating point code. That's also the reason we have to use the instruction <code
+                    class="language-x86asm">emms</code> after finishing with MMX instructions, it exits the MMX mode and
+                clears the slate. We address the registers using <code class="language-x86asm">mm0, ...m mm7</code>.
+                Unlike when using floating point operations, here they are addressible without the use of a stack. They
+                also have their own operations. For instance, instead of <code class="language-x86asm">mov</code> we
+                have to use <code class="language-x86asm">movq</code>, instead of <code
+                    class="language-x86asm">add</code> we use <code class="language-x86asm">paddd</code> and so on.
+                Let's look at a code sample.</p>
+            <pre><code class="language-x86asm">GLOBAL main
 EXTERN printf
 
 SECTION .data
@@ -393,14 +426,303 @@ main:
     xor eax, eax
     ret</code></pre>
 
-    <p>Some parts of the code are pretty self explanatory. We initialise <code class="language-x86asm">[value]</code> with a 64-bit value that we see as two 32-bit values. We can move data into the lowest part of a MMX register using <code class="language-x86asm">movd</code> (d stands for doubleword, 32 bits; q would stand for quadword or 64 bits). Then at (1) we pack two MMX registers into one. The mnemonic <code class="language-x86asm">packssdw</code> stands for <bold>pack</bold>, using <bold>S</bold>igned <bold>S</bold>aturation, 4 <bold>D</bold>oublewords (two from MM0, two from MM1) into 4 <bold>W</bold>ords. So it casts both 32 bit components of MMX registers into two 16 bit components (and, if they are too large to fit, saturates them by setting them to the highest 16 bit value), then concatenates them to the (also converted and saturated) 16 bit components of the other MMX register.</p>
+            <p>Some parts of the code are pretty self explanatory. We initialise <code
+                    class="language-x86asm">[value]</code> with a 64-bit value that we see as two 32-bit values. We can
+                move data into the lowest part of a MMX register using <code class="language-x86asm">movd</code> (d
+                stands for doubleword, 32 bits; q would stand for quadword or 64 bits). Then at (1) we pack two MMX
+                registers into one. The mnemonic <code class="language-x86asm">packssdw</code> stands for <bold>pack
+                </bold>, using <bold>S</bold>igned <bold>S</bold>aturation, 4 <bold>D</bold>oublewords (two from MM0,
+                two from MM1) into 4 <bold>W</bold>ords. So it casts both 32 bit components of MMX registers into two 16
+                bit components (and, if they are too large to fit, saturates them by setting them to the highest 16 bit
+                value), then concatenates them to the (also converted and saturated) 16 bit components of the other MMX
+                register.</p>
 
-    <p>With <code class="language-x86asm">paddd</code> at (2) we add both doubleword components independently. If we wanted to add 8 separate byte-large components, we would use <code class="language-x86asm">paddb</code>. Lastly, we apply bitshift to the entire quadword MMX register, to move the highest 32 bits (representing the other integer) into the low 32 bits, that are easily extracted into the general purpose registers. The code outputs 13, as desired.</p>
-    
-    <p>We now write the code leveraging MMX for the sum of an array.</p>
+            <p>With <code class="language-x86asm">paddd</code> at (2) we add both doubleword components independently.
+                We compute the sum of the first 32 bits of both registers and store it into the first 32 bits of mm0;
+                then we compute the sum of the last 32 bits of both registers and store it into the second half of mm0.
+                If we wanted to add 8 separate byte-large components, we would use <code
+                    class="language-x86asm">paddb</code>. Lastly, we apply bitshift to the entire quadword MMX register,
+                to move the highest 32 bits (representing the other integer) into the low 32 bits, that are easily
+                extracted into the general purpose registers. The code outputs 13, as desired.</p>
+
+            <p>We now write the code leveraging MMX for the sum of an array.</p>
+            <pre><code class="language-x86asm">sum_array:
+    pxor mm0, mm0 ; partial sum carrier
+    xor ecx, ecx ; array index
+
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        paddd mm0, [array + 4*rcx] ; Compute sum of two elements of the array
+        add rcx, 2 ; rcx+=2, we are processing two elements at a time
+        jmp startsumloop
+    endsumloop:
+
+    movd eax, mm0
+    psrlq mm0, 32
+    movd ecx, mm0
+    add eax, ecx
+
+    emms
+
+    ret</code></pre>
+            <p>Compared to the naive code, this program computes two sums at once. The average runtime now is
+                approximately 1.3306s. Interestingly (and somewhat expectedly), this is roughly as fast as our final
+                program in the previous post, where we computed two sums in parallel (just like here), except we used
+                instruction-level parallelism instead of SIMD parallelism. Now in the words of Goku, "And this is to go
+                even further beyond!"; we explore other extensions of x86 which offer even higher levels of SIMD
+                parallelism, as well as more flexibility. MMX itself is quite old and some of the design choices are
+                questionable.</p>
+
+            <h4>SSE</h4>
+            <p><a href="https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions">SSE</a> stands for Streaming SIMD
+                Extensions. It was originally introduced in 1999, but it went through a few revisions, we're currently
+                at SSE4.2. This extension adds 8 new XMM registers (16 in x86-64. Do not confuse XMM with MMX).
+                Crucially, these registers are no longer 64 bit, they are 128 bit large (and extended further with the
+                AVX extension, which we will look at at the end). The original SSE allowed SIMD operations of four
+                32-bit floats. SSE2 extended the support to 2 64-bit floats, as well as all kinds of integer SIMD
+                instructions (for example operations on four 32-bit integers packed into a 128-bit register). SSE3 added
+                some instructions that are not just the default SIMD, but include horizontal operations. For example,
+                <code class="language-x86asm">haddpd</code> takes two 128-bit XMM registers, the first one storing
+                64-bit floats \(a_1\) and \(a_2) and the second one storing 64-bit floats \(b_1\) and \(b_2\). The
+                result of the operation is an XMM register storing two 64-bit floats \(a_1+a_2\) and \(b_1+b_2\)
+                (whereas vertical addition would carry \(a_1+b_1\) and \(a_2+b_2\)). SSE4 includes a variety of new
+                instructions. I will not touch upon all of them as they can be a bit niche, but the most imporant ones
+                (in my opinion) are <code class="language-x86asm">DPPS</code> for computing a dot product and <code
+                    class="language-x86asm">pminsd</code>, which computes a packed minimum. You can check the full
+                instruction set here: <a
+                    href="https://www.intel.com/content/dam/develop/external/us/en/documents/d9156103-705230.pdf">https://www.intel.com/content/dam/develop/external/us/en/documents/d9156103-705230.pdf</a>.
+            </p>
+
+            <p>Now it's time to write a four-way parallel version of the sum program, this time using the 128-bit SSE
+                instructions, rather than the 64-bit MMX ones. We are using three operations. One, <code
+                    class="language-x86asm">paddd</code> is simple, it just adds four 32-bit integers at once. The
+                instruction <code class="language-x86asm">movhlps</code> is a bit more complex. It takes a register
+                containing four integers</p>
+            <pre>xmm0 = [a, b, c, d]</pre>
+            <p> and moves the values from the high 64 bits to the low 64 bits. The result of the operation <code
+                    class="language-x86asm">movhlps xmm1, xmm0</code> is </p>
+            <pre>xmm1 = [c, d, ?, ?]</pre>
+            <p>Lastly, we need <code class="language-x86asm">pshufd</code>. This allows us to shuffle the integers in an
+                XMM register arbitrarily. It takes three operands, the result of the suffle, the source of the shuffle
+                and an index that describes which element goes where. The index is an 8-bit integer, so it can be
+                partitioned into four 2-bit chunks. Each chunk tells you which integer from the source register it gets.
+                For example, if we have</p>
+            <pre>xmm0 = [a, b, c, d]</pre>
+            <p>And we take the index value 100, which is 0b01 10 01 00 in binary. We convert each chunk back to decimal,
+                to get 1, 2, 1, and 0. Thus the destination gets the 2nd element of source in the first element of the
+                destination (2nd element due to zero indexing), 3rd element of source in the second element of the
+                destination and so on. So the output of <code class="language-x86asm">pshufd xmm1, xmm0, 100</code> is
+            </p>
+            <pre>xmm1 = [b, c, b, a]</pre>
+            <p>Last word of warning, before we write the code: the data we're operating on has to be 16-byte aligned. In
+                our benchmark code, this is achieved using <code class="language-x86asm">align 16</code> before the
+                definition of the array. Now it's time to write our code.</p>
         </article>
+
+        <pre><code class="language-x86asm">sum_array:
+    pxor xmm0, xmm0 ; partial sum carrier
+    xor ecx, ecx ; array index
+
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        paddd xmm0, [array + 4*rcx]
+        add rcx, 4 ; rcx+=4
+        jmp startsumloop
+    endsumloop:
+
+    ; xmm0 has 32-bit integers [a, b, c, d] 
+    movhlps xmm1, xmm0 ; Move high bits from xmm0 -> low bits of xmm1
+    ; xmm1 has [c, d, ?, ?]
+    paddd xmm0, xmm1
+    ; xmm0 has [a+c, b+d, ?, ?]
+    pshufd xmm1, xmm0, 0x1
+    ; xmm1 has [b+d, a+c, a+c, a+c]
+    paddd xmm0, xmm1
+    ; xmm0 has [a+c + b+d, b+d + a+c, ?, ?]
+    movd eax, xmm0
+    ; eax has a+c + b+d = a+b+c+d = sum of the array
+
+    ret
+</code></pre>
+        <p>As expected due to the further parallelisation, this is another speedup and the runtime is now approximately
+            1.181s. Let's continue with the next extension.</p>
+
+        <h4>AVX</h4>
+        <p><a href="https://en.wikipedia.org/wiki/Advanced_Vector_Extensions">AVX</a> stands for Advanced Vector
+            Extensions. This one, too, comes in several versions: AVX, AVX2 and AVX-512 (and technically AVX10, but this
+            one doesn't really add anything). The extension further extends the SSE registers to 256 bits or, in the
+            case of AVX-512, to 512 bits (or 64 bytes, capable storing 16 32-bit integers). It also comes with a more
+            complex coding scheme, <a href="https://en.wikipedia.org/wiki/VEX_prefix">VEX coding</a>. Previously, all
+            instructions only worked on up to two operands (and optionally a fixed constant, an immediate, in addition,
+            as we've seen in <code class="language-x86asm">pshufd</code>) while the new scheme allows up to four
+            operands (and an additional immediate). Most of the instructions are just adaptations of the SSE
+            instructions to the larger registers and the VEX coding scheme, but there's also a variety of new
+            instructions, mostly to do with shuffling and rearranging the data in registers.</p>
+        <p>If SSE registers are addressed using <code class="language-x86asm">xmm0, ..., xmm15</code>, the 256-bit AVX
+            registers are addressed using <code class="language-x86asm">ymm0, ..., ymm15</code> and the 512-bit ones
+            using <code class="language-x86asm">zmm0, ..., zmm15</code>. If our CPU supports AVX-512, we have 32
+            registers, so they all go up to <code class="language-x86asm">xmm31 / ymm31 / zmm31</code>. While every x86
+            computer supports MMX and every modern computer supports SSE, AVX support is still a bit rare and AVX-512
+            even moreso. I actually don't have access to AVX-512 at home, so I have to resort to using the university
+            HPC.</p>
+
+
+        <details>
+            <summary>Tangent 4: VEX coding on non-vector registers</summary>
+            While this was not the case originally, they have extended the use of VEX coding to general purpose
+            registers, such as <code class="language-x86asm">eax</code>. They are mostly limited to the bit manipulation
+            instructions, however. Let's check one example.
+            <pre><code class="language-x86asm">mov eax, 0x0000_0F0F
+mov ebx, 0x0000_F00F
+mov ecx, ebx ; First copy
+not ecx ; ~ebx = 0xFFFF_0FF0
+and ecx, eax ; ecx = ~ebx & eax = 0x0000_0F00 = 3840
+            </code></pre>
+            <p>With VEX coding, this can be rewritten easily as:
+            <pre><code class="language-x86asm">mov eax, 0x0000_0F0F
+mov ebx, 0x0000_F00F
+andn ecx, ebx, eax
+</code></pre>
+        </details>
+
+        <details>
+            <summary>Tangent 5: false AVX dependencies</summary>
+            <p>AVX extensions made an interesting choice with their use of the SSE registers. See, when we use 32-bit
+                instructions on 64-bit general purpose registers, it tends to zero-out the higher 64 bits regardless;
+                this is why when we want to zero out a register, we use <code
+                    class="language-x86asm">xor eax, eax</code> instead of <code
+                    class="language-x86asm">xor rax, rax</code>. It's slightly more efficient (it's one byte shorter in
+                machine code) and it the output is the same in both cases, every bit of the 64-bit register <code
+                    class="language-x86asm">rax</code> becomes zero. However when we use the SSE instructions (without
+                their VEX-coded form) <emph>that doesn't happen</emph>. Only the lower 128 bits are modified. This
+                doesn't seem like a big deal, but it can create a false dependency and make the optimisation much harder
+                for the processor (exactly the kind of optimisation we relied on in the previous blog post, in fact).
+                They added an instruction <code class="language-x86asm">vzeroupper</code> for this (which zeroes out the
+                upper bits, eliminating the stalls), but this still adds overhead. We can bypass that by not mixing SSE
+                and AVX or, if we do have to mix them, use the VEX coded form of SSE operations, which does zero out the
+                higher bits.</p>
+            <p>A similar thing sometimes happens with the use of <code class="language-x86asm">inc</code> (increment)
+                instruction. While the <code class="language-x86asm">add eax, 1</code> does the full update of the
+                condition flags, <code class="language-x86asm">inc eax</code> only does a partial update which can cause
+                some funny stalls due to false dependencies and slow the code down. This has mostly been mitigated after
+                Pentium 4 and there's usually no performance difference between the two instructions these days.</p>
+        </details>
+
+        <p>On with the code now. This time we extract the data from the AVX registers a bit differently than before. A
+            similar method as before would still work, but as I am using this blog post to give an introduction to the
+            new SIMD instructions, I believe it would be beneficial to introduce some more instructions. First one is
+            <code class="language-x86asm">vextractf128</code>. This one can extract 128 bits from a 256-bit register and
+            store it into an 128-bit register. The second instruction is <code class="language-x86asm">phaddd</code>,
+            which performs horizontal addition. So given two registers <code
+                class="language-x86asm">xmm0 ; = [a, b, c, d]</code> and <code
+                class="language-x86asm">xmm1 ; = [e, f, g, h]</code>, the result of <code
+                class="language-x86asm">phaddd xmm0, xmm1</code> is <code
+                class="language-x86asm">xmm0 ; = [a+b, c+d, e+f, g+h]</code>. We can use this to coalesce the results
+            from 8 independent integers into one sum.</p>
+        <p>We also have to make sure that our memory is aligned to 32-byte boundaries.</p>
+        <pre><code class="language-x86asm">SECTION .bss
+    align 32 ; 64 for AVX-512
+    array resd array_len</code></pre>
+        <p>We are left with the following code for the sum using AVX.</p>
+        <pre><code class="language-x86asm">sum_array:
+    vpxor ymm0, ymm0, ymm0 ; partial sum carrier
+    xor ecx, ecx ; array index
+
+    startsumloop:
+        cmp rcx, array_len ; if rcx >= array_len, go to endsumloop
+        jge endsumloop
+        vpaddd ymm0, ymm0, [array + 4*rcx]
+        add rcx, 8 ; rcx+=8
+        jmp startsumloop
+    endsumloop:
+
+    ; ymm0 = [a0, a1, a2, a3, a4, a5, a6, a7]
+    vextractf128 xmm1, ymm0, 1  ; xmm1 = [a4, a5, a6, a7]
+    paddd xmm0, xmm1      ; xmm0 = [a0+a4, a1+a5, a2+a6, a3+a7]
+    phaddd xmm0, xmm0      ; xmm0 = [ (a0+a4)+(a1+a5), (a2+a6)+(a3+a7) ]
+    phaddd xmm0, xmm0      ; xmm0[0] = (a0+a4)+(a1+a5)+(a2+a6)+(a3+a7)
+
+    movd eax, xmm0
+    ret</code></pre>
+        <p>And the speed of the code is now 1.074s. We are starting to see some diminishing returns, but we observe a
+            speedup regardless. Lastly, the code using AVX-512. This is more for completeness, I will not dwell on it
+            for too long due to the lack of availability of the AVX-512 instruction set. The code is essentially the
+            same as the 256-bit one though.</p>
+        <pre><code class="language-x86asm">sum_array:
+    vpxord zmm0, zmm0, zmm0 ; partial sum carrier
+    xor ecx, ecx ; array index
+    
+    startsumloop:
+        cmp rcx, array_len            ; if index >= array_len, go to endsumloop
+        jge endsumloop
+        vpaddd zmm0, zmm0, [array + 4*rcx]
+        add rcx, 16   
+        jmp startsumloop
+    
+    endsumloop:
+        ; zmm0 contains 16 partial sums.
+        vextracti32x8 ymm1, zmm0, 1 ; Extract upper 256 bits into ymm1
+        vpaddd ymm0, ymm0, ymm1 ; Add lower and upper 256-bit halves => ymm0 now has 8 ints
+        vextracti32x4 xmm1, ymm0, 1 ; Extract upper 128 bits into xmm1
+        vpaddd xmm0, xmm0, xmm1 ; Add lower and upper 128-bit halves => xmm0 now has 4 ints
+        phaddd xmm0, xmm0, xmm0 ; Horizontal add: now xmm0 contains 2 partial sums in its lower half
+        phaddd xmm0, xmm0, xmm0 ; Final horizontal add: xmm0[0] holds the total sum
+    
+        movd eax, xmm0
+        ret
+    </code></pre>
+        <h4>Summary of results</h4>
+        <p>Now let's bring all results together. I am also running the code on another computer, the HPC with a Xeon
+            Silver 4410Y. This way, we can also measure the impact of AVX-512, but the performance will not be good as
+            it's also running other things (it is, however, consistent).</p>
+        <table>
+            <th>
+            <td></td>
+            <td>i5-13400F</td>
+            <td>Xeon 4410Y</td>
+            </th>
+            <tr>
+                <td>Naive</td>
+                <td>1.669s</td>
+                <td>3.400s</td>
+            </tr>
+            <tr>
+                <td>MMX</td>
+                <td>1.330s</td>
+                <td>3.076s</td>
+            </tr>
+            <tr>
+                <td>SSE</td>
+                <td>1.181s</td>
+                <td>2.717s</td>
+            </tr>
+            <tr>
+                <td>AVX</td>
+                <td>1.074s</td>
+                <td>2.364s</td>
+            </tr>
+            <tr>
+                <td>AVX-512</td>
+                <td>N/A</td>
+                <td>2.031s</td>
+            </tr>
+        </table>
+
+        <p>The results we obtained are quite satisfactionary. We managed to obtain a massive speedup by using the SIMD
+            instructions and, hopefully, learned something along the way. As a curiosity, if we compile the
+            naively-written C code using the highest optimisation levels and <code>-march=native</code>, it compiles it
+            to a version roughly equivalent to our AVX code (with roughly the same performance). It's still good to be
+            aware of the SIMD instructions, as sometimes the compiler won't recognise the optimisations (or only
+            recognises them if we write our C code in the correct way).</p>
+
+        <p>If you have any further questions or comment, drop me a mail! I would be happy to discuss anything further.
+        </p>
+
+
     </main>
-<!-- mention GPUs -->
+    <!-- mention GPUs -->
     <footer>
         <p>© 2025 Tadej Petrič</p>
     </footer>
