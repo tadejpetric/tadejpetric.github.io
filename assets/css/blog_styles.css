@@ -16,3 +16,7 @@ main.blog-content {
         max-width: 1200px;
     }
 }
+
+ul {
+    margin-left: 2em;
+}
