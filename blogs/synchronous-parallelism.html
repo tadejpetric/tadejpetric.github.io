@@ -117,7 +117,7 @@
                 out-of-bounds errors - it's divisible by a sufficiently large power of two.</p>
             <details>
                 <summary>Click to see the benchmarking code.</summary>
-                <p>We define an array <code class="language-x86asm">array</code> with 500 million elements, each of size
+                <p>We define an array <code class="language-x86asm">array</code> with two billion elements, each of size
                     one byte. We initialise it with some garbage values. We then call the function <code
                         class="language-x86asm">shift_array</code> ten times.</p>
                 <pre><code class="language-x86asm">; code that shifts an array 1 byte to the right
@@ -197,7 +197,7 @@ main:
     ret</code></pre>
             <p>This naive implementation takes 1.595s on average, giving us a performance baseline to beat.</p>
             <details>
-                <summary>Tangent 1: swapping natively is slow.</summary>
+                <summary>Tangent 1: Swapping natively is slow.</summary>
                 <p>In x86 there is actually an instruction that swaps two elements. This instruction allows swapping
                     without needing an intermediate register. The code above could be rewritten as:</p>
                 <pre><code class="language-x86asm">shift_array:
@@ -221,7 +221,7 @@ main:
                     discussed in the previous post).</p>
             </details>
             <details>
-                <summary>Tangent 2: A clever approach</summary>
+                <summary>Tangent 2: A clever approach.</summary>
                 <p>There is another approach to the program. This time, we iterate <em>backwards</em> through the array.
                     We only have to move each element one byte forward, directly overwriting any elements at that
                     position. This way we don't need a temporary variable for swapping. However, we still need a
@@ -283,7 +283,7 @@ main:
                 on multiple pieces of data (8 bytes — each one an array element). That's SIMD in action.</p>
 
             <details>
-                <summary>Tangent 3: A clever approach, part 2</summary>
+                <summary>Tangent 3: A clever approach, part 2.</summary>
                 <pre><code class="language-x86asm">shift_array:
     mov rcx, array_len ; array index
     dec rcx
@@ -322,7 +322,8 @@ main:
                 register simultaneously.</p>
             <p>An interesting example can be found using the multiplication operation. If we multiply a byte with the
                 number <code class="language-x86asm">0x0101</code>, we duplicate that byte. For example
-                <code>0x42 * 0x0101 = 0x4242</code>
+                <code>0x42 * 0x0101 = 0x4242</code>. We can increase that even further, for example the multiplication
+                by <code class="language-x86asm">0x01010101</code> would quadruple the byte, etc.
             </p>
             <p>There are countless other low-level tricks like this (for more, I highly recommend the book Hacker's
                 Delight). But for now, let's move on to the part of the CPU architecture purpose-built for SIMD.</p>
@@ -338,7 +339,7 @@ main:
             <p>Instructions offered in the MMX set are pretty basic. MMX provides 8 dedicated 64-bit registers. There
                 are instructions operating on these registers, as for the standard x86 set. The instructions operate on
                 multiple data stored inside the register; when we do addition of two MMX registers, it adds the
-                constituents independentlysimilar to performing two 32-bit additions, four 16-bit additions, or eight
+                constituents independently; similar to performing two 32-bit additions, four 16-bit additions, or eight
                 8-bit additions - all in parallel. Multiple values are "packed" inside the register. The base MMX set
                 includes instructions to:
             <ul>
@@ -354,7 +355,7 @@ main:
 
             <p>None of these MMX instructions are particularly useful for the array-shift problem, so let's return to
                 the array summation problem from the previous post. Our goal is to compute the sum of the array and
-                store it in a 32-bit value. We are only interested in the sum modulo \(2^32\), so overflow doesn't
+                store it in a 32-bit general-purpose register. We are only interested in the sum modulo \(2^32\), so overflow doesn't
                 matter.</p>
 
             <details>
@@ -445,6 +446,7 @@ xor ebx, ebx ; Just to demonstrate we are using mmx only
 
 packssdw mm0, mm1 ; (1) mm0 has 0x0000000100000006
 
+; value dq 0x0000000400000002
 movq mm1, [value] ; mm1 has 0x0000000400000002
 
 paddd mm0, mm1 ; (2) mm0 has 0x0000000500000008
@@ -504,7 +506,7 @@ add eax, ebx ; eax has 0xC = 0x8 + 0x5
     ret</code></pre>
             <p>Compared to the naive version, this program computes two partial sums in parallel using 64-bit MMX
                 registers. The average runtime now is
-                approximately 1.3306s. Interestingly - and somewhat expectedly - this is roughly as fast as our final
+                approximately 1.330s. Interestingly - and somewhat expectedly - this is roughly as fast as our final
                 program in the previous post, where we computed two sums in parallel, just like here. However that
                 version relied on
                 instruction-level parallelism, while this one uses SIMD. Now in the words of Goku: "And this is to go
@@ -618,7 +620,7 @@ add eax, ebx ; eax has 0xC = 0x8 + 0x5
 
 
             <details>
-                <summary>Tangent 4: VEX coding on non-vector registers</summary>
+                <summary>Tangent 4: VEX coding on non-vector registers.</summary>
                 <p>Although this wasn't originally the case, VEX coding has since been extended to cover general-purpose
                     registers, such as <code class="language-x86asm">eax</code>. However, their use is mostly limited to
                     the bit
@@ -637,7 +639,7 @@ andn ecx, ebx, eax
             </details>
 
             <details>
-                <summary>Tangent 5: false AVX dependencies</summary>
+                <summary>Tangent 5: false AVX dependencies.</summary>
                 <p>AVX extensions made an interesting choice with their use of the SSE registers. See, when we use
                     32-bit instructions on 64-bit general purpose registers, the upper 32 bits are implicitly zeroed out.
                     That's why we typically zero a register using <code class="language-x86asm">xor eax, eax</code>
